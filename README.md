@@ -1,7 +1,7 @@
 # Unitree Go2 for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/v/release/dirkk/ha-unitree-go2)](https://github.com/dirkk/ha-unitree-go2/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/diRk262/ha-unitree-go2)](https://github.com/diRk262/ha-unitree-go2/releases)
 
 Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRTC (local network) and exposes sensors, status and camera as native HA entities.
 
@@ -28,7 +28,7 @@ Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRT
 
 1. Open HACS in Home Assistant
 2. Click the three dots in the top right → **Custom repositories**
-3. Add `https://github.com/dirkk/ha-unitree-go2` as **Integration**
+3. Add `https://github.com/diRk262/ha-unitree-go2` as **Integration**
 4. Search for "Unitree Go2" and install
 5. Restart Home Assistant
 

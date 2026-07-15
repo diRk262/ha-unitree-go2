@@ -1,10 +1,10 @@
 {
   "domain": "unitree_go2",
   "name": "Unitree Go2",
-  "codeowners": ["@dirkk"],
+  "codeowners": ["@diRk262"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/dirkk/ha-unitree-go2",
+  "documentation": "https://github.com/diRk262/ha-unitree-go2",
   "iot_class": "local_polling",
   "requirements": ["aiortc>=1.9.0", "curl_cffi>=0.7.0"],
   "version": "0.1.0"
