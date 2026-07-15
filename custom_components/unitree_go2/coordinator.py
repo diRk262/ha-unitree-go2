@@ -94,7 +94,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             ip=self.robot_ip,
             aes_128_key=self._aes_key,
         )
-        await self._conn.connect()
+        await asyncio.wait_for(self._conn.connect(), timeout=30)
         self._connected = True
         self._sensor_data["online"] = True
 
