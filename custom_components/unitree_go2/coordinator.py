@@ -89,12 +89,15 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
     async def async_connect(self) -> None:
         """Establish WebRTC connection to the robot."""
+        _LOGGER.debug("Creating WebRTC connection to %s", self.robot_ip)
         self._conn = UnitreeWebRTCConnection(
             WebRTCConnectionMethod.LocalSTA,
             ip=self.robot_ip,
             aes_128_key=self._aes_key,
         )
+        _LOGGER.debug("Calling connect()...")
         await asyncio.wait_for(self._conn.connect(), timeout=30)
+        _LOGGER.debug("WebRTC connected, subscribing topics...")
         self._connected = True
         self._sensor_data["online"] = True
 
@@ -108,9 +111,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             RTC_TOPIC["ULIDAR_STATE"], self._on_lidar_state
         )
 
+        _LOGGER.debug("Enabling video channel...")
         self._conn.video.switchVideoChannel(True)
         self._conn.video.add_track_callback(self._recv_video)
 
+        _LOGGER.debug("Fetching device info...")
         try:
             await asyncio.wait_for(self._fetch_device_info(), timeout=10)
         except (asyncio.TimeoutError, Exception) as exc:
@@ -439,10 +444,14 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self) -> dict:
         if not self._connected:
+            _LOGGER.debug("Not connected, attempting connect...")
             try:
                 await self.async_connect()
             except Exception as exc:
+                _LOGGER.error("Connection failed: %s", exc)
                 raise UpdateFailed(f"Connection failed: {exc}") from exc
 
+        _LOGGER.debug("Polling VUI and obstacles...")
         await self._poll_vui_and_obstacles()
+        _LOGGER.debug("Update complete")
         return dict(self._sensor_data)
