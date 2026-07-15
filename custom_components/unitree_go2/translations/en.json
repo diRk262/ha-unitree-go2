@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Unitree Account",
+        "description": "Log in with your Unitree account to fetch your robot's credentials automatically.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "select_device": {
+        "title": "Select Robot",
+        "description": "Choose the robot you want to add.",
+        "data": {
+          "device": "Robot"
+        }
+      },
+      "enter_ip": {
+        "title": "Robot IP Address",
+        "description": "The robot ({serial}) could not be found automatically. Enter its IP address.",
+        "data": {
+          "robot_ip": "IP Address"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Login failed. Check email and password.",
+      "no_devices": "No robots found on this account.",
+      "cannot_connect": "Could not connect to the robot. Check the IP address and network."
+    },
+    "abort": {
+      "already_configured": "This robot is already configured."
+    }
+  }
+}

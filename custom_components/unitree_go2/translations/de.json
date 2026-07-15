@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Unitree Account",
+        "description": "Melde dich mit deinem Unitree-Konto an, um die Zugangsdaten deines Roboters automatisch abzurufen.",
+        "data": {
+          "email": "E-Mail",
+          "password": "Passwort"
+        }
+      },
+      "select_device": {
+        "title": "Roboter auswählen",
+        "description": "Wähle den Roboter, den du hinzufügen möchtest.",
+        "data": {
+          "device": "Roboter"
+        }
+      },
+      "enter_ip": {
+        "title": "Roboter IP-Adresse",
+        "description": "Der Roboter ({serial}) konnte nicht automatisch gefunden werden. Gib seine IP-Adresse ein.",
+        "data": {
+          "robot_ip": "IP-Adresse"
+        }
+      }
+    },
+    "error": {
+      "auth_failed": "Anmeldung fehlgeschlagen. Prüfe E-Mail und Passwort.",
+      "no_devices": "Keine Roboter auf diesem Konto gefunden.",
+      "cannot_connect": "Verbindung zum Roboter fehlgeschlagen. Prüfe IP-Adresse und Netzwerk."
+    },
+    "abort": {
+      "already_configured": "Dieser Roboter ist bereits konfiguriert."
+    }
+  }
+}
