@@ -37,8 +37,7 @@ SENSOR_DEFINITIONS: list[
     ("lidar_error", "LiDAR Fehler", None, None, None, "mdi:alert-circle"),
     ("imu_roll", "IMU Roll", "°", None, SensorStateClass.MEASUREMENT, None),
     ("imu_pitch", "IMU Pitch", "°", None, SensorStateClass.MEASUREMENT, None),
-    ("brightness", "Helligkeit", None, None, None, "mdi:brightness-6"),
-    ("volume", "Lautstärke", None, None, None, "mdi:volume-high"),
+    ("led_color", "LED Farbe", None, None, None, "mdi:led-on"),
 ]
 
 

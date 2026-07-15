@@ -18,9 +18,11 @@ from .const import DOMAIN, SCAN_INTERVAL_SECONDS, ERROR_CODES
 
 _LOGGER = logging.getLogger(__name__)
 
+REQUEST_TIMEOUT = 5
+
 
 class Go2DataCoordinator(DataUpdateCoordinator):
-    """Manages the WebRTC connection and collects sensor data (READ ONLY)."""
+    """Manages the WebRTC connection and collects sensor data."""
 
     def __init__(
         self,
@@ -79,23 +81,23 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "volume": 0,
             "obstacle_avoidance": "unknown",
+            "led_color": "unknown",
             "online": False,
         }
 
     # ── Connection ────────────────────────────────────────────────────
 
     async def async_connect(self) -> None:
-        """Establish WebRTC connection to the robot (read-only)."""
+        """Establish WebRTC connection to the robot."""
         self._conn = UnitreeWebRTCConnection(
             WebRTCConnectionMethod.LocalSTA,
             ip=self.robot_ip,
             aes_128_key=self._aes_key,
         )
-        await self._conn.connect()
+        await asyncio.wait_for(self._conn.connect(), timeout=30)
         self._connected = True
         self._sensor_data["online"] = True
 
-        # Subscribe to read-only data topics
         self._conn.datachannel.pub_sub.subscribe(
             RTC_TOPIC["LOW_STATE"], self._on_low_state
         )
@@ -106,7 +108,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             RTC_TOPIC["ULIDAR_STATE"], self._on_lidar_state
         )
 
-        # Enable video channel (receive only, no commands sent)
         self._conn.video.switchVideoChannel(True)
         self._conn.video.add_track_callback(self._recv_video)
 
@@ -125,10 +126,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             self._connected = False
             self._sensor_data["online"] = False
 
-    # ── Video (read-only receive) ─────────────────────────────────────
+    # ── Video (receive only) ──────────────────────────────────────────
 
     async def _recv_video(self, track) -> None:
-        """Receive video frames and encode as JPEG for the camera entity."""
         try:
             import av
         except ImportError:
@@ -248,63 +248,104 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         except Exception as exc:
             _LOGGER.debug("LIDAR_STATE parse error: %s", exc)
 
-    # ── Polled values (READ ONLY) ─────────────────────────────────────
+    # ── Polled values ─────────────────────────────────────────────────
+
+    async def _safe_request(self, topic, options):
+        try:
+            return await asyncio.wait_for(
+                self._conn.datachannel.pub_sub.publish_request_new(topic, options),
+                timeout=REQUEST_TIMEOUT,
+            )
+        except (asyncio.TimeoutError, Exception) as exc:
+            _LOGGER.debug("Request timeout/error for %s: %s", topic, exc)
+            return None
 
     async def _poll_vui_and_obstacles(self) -> None:
         if not self._conn or not self._connected:
             return
 
-        try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["VUI"], {"api_id": 1006}
-            )
-            if (
-                resp.get("data", {})
-                .get("header", {})
-                .get("status", {})
-                .get("code")
-                == 0
-            ):
+        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1006})
+        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
+            try:
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["brightness"] = d.get("brightness", 0)
-        except Exception as exc:
-            _LOGGER.debug("VUI brightness error: %s", exc)
+            except Exception:
+                pass
 
-        try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["VUI"], {"api_id": 1004}
-            )
-            if (
-                resp.get("data", {})
-                .get("header", {})
-                .get("status", {})
-                .get("code")
-                == 0
-            ):
+        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1004})
+        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
+            try:
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["volume"] = d.get("volume", 0)
-        except Exception as exc:
-            _LOGGER.debug("VUI volume error: %s", exc)
+            except Exception:
+                pass
 
-        try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["OBSTACLES_AVOID"],
-                {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
-            )
-            code = (
-                resp.get("data", {})
-                .get("header", {})
-                .get("status", {})
-                .get("code", -1)
-            )
+        resp = await self._safe_request(
+            RTC_TOPIC["OBSTACLES_AVOID"],
+            {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
+        )
+        if resp:
+            code = resp.get("data", {}).get("header", {}).get("status", {}).get("code", -1)
             raw = resp.get("data", {}).get("data", "")
             if code == 0 and raw:
-                d = json.loads(raw)
-                self._sensor_data["obstacle_avoidance"] = (
-                    "on" if d.get("enable") else "off"
-                )
-        except Exception as exc:
-            _LOGGER.debug("Obstacles error: %s", exc)
+                try:
+                    d = json.loads(raw)
+                    self._sensor_data["obstacle_avoidance"] = (
+                        "on" if d.get("enable") else "off"
+                    )
+                except Exception:
+                    pass
+
+        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1009})
+        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
+            try:
+                d = json.loads(resp["data"].get("data", "{}"))
+                color = d.get("color", "")
+                self._sensor_data["led_color"] = color if color else "off"
+            except Exception:
+                pass
+
+    # ── Commands ──────────────────────────────────────────────────────
+
+    async def async_set_volume(self, volume: int) -> None:
+        if not self._conn or not self._connected:
+            return
+        await self._safe_request(
+            RTC_TOPIC["VUI"],
+            {"api_id": 1003, "parameter": {"volume": volume}},
+        )
+        self._sensor_data["volume"] = volume
+        self.async_set_updated_data(dict(self._sensor_data))
+
+    async def async_set_brightness(self, brightness: int) -> None:
+        if not self._conn or not self._connected:
+            return
+        await self._safe_request(
+            RTC_TOPIC["VUI"],
+            {"api_id": 1005, "parameter": {"brightness": brightness}},
+        )
+        self._sensor_data["brightness"] = brightness
+        self.async_set_updated_data(dict(self._sensor_data))
+
+    async def async_set_obstacle_avoidance(self, enable: bool) -> None:
+        if not self._conn or not self._connected:
+            return
+        await self._safe_request(
+            RTC_TOPIC["OBSTACLES_AVOID"],
+            {"api_id": OBSTACLES_AVOID_API["SWITCH_SET"], "parameter": {"enable": enable}},
+        )
+        self._sensor_data["obstacle_avoidance"] = "on" if enable else "off"
+        self.async_set_updated_data(dict(self._sensor_data))
+
+    async def async_set_lidar(self, enable: bool) -> None:
+        if not self._conn or not self._connected:
+            return
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["ULIDAR_SWITCH"],
+            "ON" if enable else "OFF",
+        )
+        self._sensor_data["lidar_active"] = enable
+        self.async_set_updated_data(dict(self._sensor_data))
 
     # ── Coordinator update ────────────────────────────────────────────
 
