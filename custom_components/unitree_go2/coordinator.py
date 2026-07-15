@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Go2DataCoordinator(DataUpdateCoordinator):
-    """Manages the WebRTC connection and collects sensor data."""
+    """Manages the WebRTC connection and collects sensor data (READ ONLY)."""
 
     def __init__(
         self,
@@ -43,7 +43,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._sensor_data: dict = self._empty_data()
         self._last_frame: bytes | None = None
         self._frame_event = asyncio.Event()
-        self.device_info_data: dict = {}
 
     @staticmethod
     def _empty_data() -> dict:
@@ -80,27 +79,23 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "volume": 0,
             "obstacle_avoidance": "unknown",
-            "lidar_active": False,
-            "led_color": "unknown",
             "online": False,
         }
 
     # ── Connection ────────────────────────────────────────────────────
 
     async def async_connect(self) -> None:
-        """Establish WebRTC connection to the robot."""
-        _LOGGER.debug("Creating WebRTC connection to %s", self.robot_ip)
+        """Establish WebRTC connection to the robot (read-only)."""
         self._conn = UnitreeWebRTCConnection(
             WebRTCConnectionMethod.LocalSTA,
             ip=self.robot_ip,
             aes_128_key=self._aes_key,
         )
-        _LOGGER.debug("Calling connect()...")
-        await asyncio.wait_for(self._conn.connect(), timeout=30)
-        _LOGGER.debug("WebRTC connected, subscribing topics...")
+        await self._conn.connect()
         self._connected = True
         self._sensor_data["online"] = True
 
+        # Subscribe to read-only data topics
         self._conn.datachannel.pub_sub.subscribe(
             RTC_TOPIC["LOW_STATE"], self._on_low_state
         )
@@ -111,15 +106,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             RTC_TOPIC["ULIDAR_STATE"], self._on_lidar_state
         )
 
-        _LOGGER.debug("Enabling video channel...")
+        # Enable video channel (receive only, no commands sent)
         self._conn.video.switchVideoChannel(True)
         self._conn.video.add_track_callback(self._recv_video)
-
-        _LOGGER.debug("Fetching device info...")
-        try:
-            await asyncio.wait_for(self._fetch_device_info(), timeout=10)
-        except (asyncio.TimeoutError, Exception) as exc:
-            _LOGGER.debug("Device info fetch skipped: %s", exc)
 
         _LOGGER.info("Go2 connected at %s", self.robot_ip)
 
@@ -136,62 +125,10 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             self._connected = False
             self._sensor_data["online"] = False
 
-    # ── Device info (fetched once at connect) ─────────────────────────
-
-    async def _fetch_device_info(self) -> None:
-        if not self._conn or not self._connected:
-            return
-        try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["BASH_REQ"],
-                {
-                    "api_id": 1001,
-                    "parameter": {"cmd": "cat /robot/robot.conf 2>/dev/null || echo '{}'"},
-                },
-            )
-            code = (
-                resp.get("data", {})
-                .get("header", {})
-                .get("status", {})
-                .get("code", -1)
-            )
-            raw = resp.get("data", {}).get("data", "")
-            if code == 0 and raw:
-                d = json.loads(raw) if isinstance(raw, str) else raw
-                self.device_info_data = {
-                    "fw_version": d.get("version", ""),
-                    "hw_version": d.get("hw_version", ""),
-                    "sn": d.get("sn", self.serial),
-                    "mac": d.get("mac", ""),
-                    "ip": self.robot_ip,
-                }
-        except Exception as exc:
-            _LOGGER.debug("Device info fetch error: %s", exc)
-
-        if not self.device_info_data.get("fw_version"):
-            try:
-                resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["BASH_REQ"],
-                    {
-                        "api_id": 1001,
-                        "parameter": {"cmd": "cat /etc/version 2>/dev/null || echo unknown"},
-                    },
-                )
-                raw = resp.get("data", {}).get("data", "")
-                if raw and raw != "unknown":
-                    self.device_info_data.setdefault("fw_version", raw.strip())
-            except Exception:
-                pass
-
-        if not self.device_info_data:
-            self.device_info_data = {
-                "sn": self.serial,
-                "ip": self.robot_ip,
-            }
-
-    # ── Video (receive only) ──────────────────────────────────────────
+    # ── Video (read-only receive) ─────────────────────────────────────
 
     async def _recv_video(self, track) -> None:
+        """Receive video frames and encode as JPEG for the camera entity."""
         try:
             import av
         except ImportError:
@@ -311,18 +248,15 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         except Exception as exc:
             _LOGGER.debug("LIDAR_STATE parse error: %s", exc)
 
-    # ── Polled values ─────────────────────────────────────────────────
+    # ── Polled values (READ ONLY) ─────────────────────────────────────
 
     async def _poll_vui_and_obstacles(self) -> None:
         if not self._conn or not self._connected:
             return
 
         try:
-            resp = await asyncio.wait_for(
-                self._conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["VUI"], {"api_id": 1006}
-                ),
-                timeout=5,
+            resp = await self._conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["VUI"], {"api_id": 1006}
             )
             if (
                 resp.get("data", {})
@@ -333,15 +267,12 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             ):
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["brightness"] = d.get("brightness", 0)
-        except (asyncio.TimeoutError, Exception) as exc:
+        except Exception as exc:
             _LOGGER.debug("VUI brightness error: %s", exc)
 
         try:
-            resp = await asyncio.wait_for(
-                self._conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["VUI"], {"api_id": 1004}
-                ),
-                timeout=5,
+            resp = await self._conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["VUI"], {"api_id": 1004}
             )
             if (
                 resp.get("data", {})
@@ -352,16 +283,13 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             ):
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["volume"] = d.get("volume", 0)
-        except (asyncio.TimeoutError, Exception) as exc:
+        except Exception as exc:
             _LOGGER.debug("VUI volume error: %s", exc)
 
         try:
-            resp = await asyncio.wait_for(
-                self._conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["OBSTACLES_AVOID"],
-                    {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
-                ),
-                timeout=5,
+            resp = await self._conn.datachannel.pub_sub.publish_request_new(
+                RTC_TOPIC["OBSTACLES_AVOID"],
+                {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
             )
             code = (
                 resp.get("data", {})
@@ -375,83 +303,17 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 self._sensor_data["obstacle_avoidance"] = (
                     "on" if d.get("enable") else "off"
                 )
-        except (asyncio.TimeoutError, Exception) as exc:
+        except Exception as exc:
             _LOGGER.debug("Obstacles error: %s", exc)
-
-        try:
-            resp = await asyncio.wait_for(
-                self._conn.datachannel.pub_sub.publish_request_new(
-                    RTC_TOPIC["VUI"], {"api_id": 1009}
-                ),
-                timeout=5,
-            )
-            if (
-                resp.get("data", {})
-                .get("header", {})
-                .get("status", {})
-                .get("code")
-                == 0
-            ):
-                d = json.loads(resp["data"].get("data", "{}"))
-                color = d.get("color", "")
-                self._sensor_data["led_color"] = color if color else "off"
-        except (asyncio.TimeoutError, Exception) as exc:
-            _LOGGER.debug("LED color poll error: %s", exc)
-
-    # ── Commands (write) ──────────────────────────────────────────────
-
-    async def async_set_volume(self, volume: int) -> None:
-        if not self._conn or not self._connected:
-            return
-        await self._conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["VUI"],
-            {"api_id": 1003, "parameter": {"volume": volume}},
-        )
-        self._sensor_data["volume"] = volume
-        self.async_set_updated_data(dict(self._sensor_data))
-
-    async def async_set_brightness(self, brightness: int) -> None:
-        if not self._conn or not self._connected:
-            return
-        await self._conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["VUI"],
-            {"api_id": 1005, "parameter": {"brightness": brightness}},
-        )
-        self._sensor_data["brightness"] = brightness
-        self.async_set_updated_data(dict(self._sensor_data))
-
-    async def async_set_obstacle_avoidance(self, enable: bool) -> None:
-        if not self._conn or not self._connected:
-            return
-        await self._conn.datachannel.pub_sub.publish_request_new(
-            RTC_TOPIC["OBSTACLES_AVOID"],
-            {"api_id": OBSTACLES_AVOID_API["SWITCH_SET"], "parameter": {"enable": enable}},
-        )
-        self._sensor_data["obstacle_avoidance"] = "on" if enable else "off"
-        self.async_set_updated_data(dict(self._sensor_data))
-
-    async def async_set_lidar(self, enable: bool) -> None:
-        if not self._conn or not self._connected:
-            return
-        self._conn.datachannel.pub_sub.publish_without_callback(
-            RTC_TOPIC["ULIDAR_SWITCH"],
-            "ON" if enable else "OFF",
-        )
-        self._sensor_data["lidar_active"] = enable
-        self.async_set_updated_data(dict(self._sensor_data))
 
     # ── Coordinator update ────────────────────────────────────────────
 
     async def _async_update_data(self) -> dict:
         if not self._connected:
-            _LOGGER.debug("Not connected, attempting connect...")
             try:
                 await self.async_connect()
             except Exception as exc:
-                _LOGGER.error("Connection failed: %s", exc)
                 raise UpdateFailed(f"Connection failed: {exc}") from exc
 
-        _LOGGER.debug("Polling VUI and obstacles...")
         await self._poll_vui_and_obstacles()
-        _LOGGER.debug("Update complete")
         return dict(self._sensor_data)

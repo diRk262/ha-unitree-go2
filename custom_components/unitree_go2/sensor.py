@@ -37,7 +37,8 @@ SENSOR_DEFINITIONS: list[
     ("lidar_error", "LiDAR Fehler", None, None, None, "mdi:alert-circle"),
     ("imu_roll", "IMU Roll", "°", None, SensorStateClass.MEASUREMENT, None),
     ("imu_pitch", "IMU Pitch", "°", None, SensorStateClass.MEASUREMENT, None),
-    ("led_color", "LED Farbe", None, None, None, "mdi:led-on"),
+    ("brightness", "Helligkeit", None, None, None, "mdi:brightness-6"),
+    ("volume", "Lautstärke", None, None, None, "mdi:volume-high"),
 ]
 
 
@@ -78,18 +79,12 @@ class Go2Sensor(CoordinatorEntity[Go2DataCoordinator], SensorEntity):
 
     @property
     def device_info(self):
-        info = {
+        return {
             "identifiers": {(DOMAIN, self.coordinator.robot_ip)},
             "name": f"Go2 Pro ({self.coordinator.serial or self.coordinator.robot_ip})",
             "manufacturer": "Unitree",
             "model": "Go2 Pro",
         }
-        di = self.coordinator.device_info_data
-        if di.get("fw_version"):
-            info["sw_version"] = di["fw_version"]
-        if di.get("hw_version"):
-            info["hw_version"] = di["hw_version"]
-        return info
 
     @property
     def native_value(self):

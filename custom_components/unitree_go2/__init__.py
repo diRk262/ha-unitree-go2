@@ -7,7 +7,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN, CONF_ROBOT_IP, CONF_AES_KEY, CONF_SERIAL
 from .coordinator import Go2DataCoordinator
 
-PLATFORMS = ["sensor", "binary_sensor", "camera", "switch", "number"]
+PLATFORMS = ["sensor", "binary_sensor", "camera"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
