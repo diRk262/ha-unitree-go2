@@ -5,3 +5,14 @@ dist/
 build/
 .venv/
 *.log
+
+# Dev files - not part of the integration
+go2_*.py
+setup_*.ps1
+setup_*.sh
+*.pdf
+*_briefing.md
+*_status_und_entwicklung.md
+referenz_*.md
+UnLeash-Lite-main/
+UniversalControlKit-*/
