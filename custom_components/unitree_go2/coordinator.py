@@ -111,7 +111,10 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._conn.video.switchVideoChannel(True)
         self._conn.video.add_track_callback(self._recv_video)
 
-        await self._fetch_device_info()
+        try:
+            await asyncio.wait_for(self._fetch_device_info(), timeout=10)
+        except (asyncio.TimeoutError, Exception) as exc:
+            _LOGGER.debug("Device info fetch skipped: %s", exc)
 
         _LOGGER.info("Go2 connected at %s", self.robot_ip)
 
@@ -310,8 +313,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             return
 
         try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["VUI"], {"api_id": 1006}
+            resp = await asyncio.wait_for(
+                self._conn.datachannel.pub_sub.publish_request_new(
+                    RTC_TOPIC["VUI"], {"api_id": 1006}
+                ),
+                timeout=5,
             )
             if (
                 resp.get("data", {})
@@ -322,12 +328,15 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             ):
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["brightness"] = d.get("brightness", 0)
-        except Exception as exc:
+        except (asyncio.TimeoutError, Exception) as exc:
             _LOGGER.debug("VUI brightness error: %s", exc)
 
         try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["VUI"], {"api_id": 1004}
+            resp = await asyncio.wait_for(
+                self._conn.datachannel.pub_sub.publish_request_new(
+                    RTC_TOPIC["VUI"], {"api_id": 1004}
+                ),
+                timeout=5,
             )
             if (
                 resp.get("data", {})
@@ -338,13 +347,16 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             ):
                 d = json.loads(resp["data"].get("data", "{}"))
                 self._sensor_data["volume"] = d.get("volume", 0)
-        except Exception as exc:
+        except (asyncio.TimeoutError, Exception) as exc:
             _LOGGER.debug("VUI volume error: %s", exc)
 
         try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["OBSTACLES_AVOID"],
-                {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
+            resp = await asyncio.wait_for(
+                self._conn.datachannel.pub_sub.publish_request_new(
+                    RTC_TOPIC["OBSTACLES_AVOID"],
+                    {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
+                ),
+                timeout=5,
             )
             code = (
                 resp.get("data", {})
@@ -358,12 +370,15 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 self._sensor_data["obstacle_avoidance"] = (
                     "on" if d.get("enable") else "off"
                 )
-        except Exception as exc:
+        except (asyncio.TimeoutError, Exception) as exc:
             _LOGGER.debug("Obstacles error: %s", exc)
 
         try:
-            resp = await self._conn.datachannel.pub_sub.publish_request_new(
-                RTC_TOPIC["VUI"], {"api_id": 1009}
+            resp = await asyncio.wait_for(
+                self._conn.datachannel.pub_sub.publish_request_new(
+                    RTC_TOPIC["VUI"], {"api_id": 1009}
+                ),
+                timeout=5,
             )
             if (
                 resp.get("data", {})
@@ -375,7 +390,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 d = json.loads(resp["data"].get("data", "{}"))
                 color = d.get("color", "")
                 self._sensor_data["led_color"] = color if color else "off"
-        except Exception as exc:
+        except (asyncio.TimeoutError, Exception) as exc:
             _LOGGER.debug("LED color poll error: %s", exc)
 
     # ── Commands (write) ──────────────────────────────────────────────
