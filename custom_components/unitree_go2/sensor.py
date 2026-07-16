@@ -35,7 +35,6 @@ SENSOR_DEFINITIONS: list[
     ("lidar_error", None, None, None, "mdi:alert-circle"),
     ("imu_roll", "°", None, SensorStateClass.MEASUREMENT, None),
     ("imu_pitch", "°", None, SensorStateClass.MEASUREMENT, None),
-    ("led_color", None, None, None, "mdi:led-on"),
 ]
 
 

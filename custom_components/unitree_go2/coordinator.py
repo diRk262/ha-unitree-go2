@@ -95,7 +95,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "volume": 0,
             "obstacle_avoidance": "unknown",
-            "led_color": "unknown",
             "online": False,
         }
 
@@ -429,16 +428,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                     )
                 except Exception:
                     pass
-
-        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1007})
-        responses.append(resp)
-        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
-            try:
-                d = json.loads(resp["data"].get("data", "{}"))
-                color = d.get("color", "")
-                self._sensor_data["led_color"] = color if color else "off"
-            except Exception:
-                pass
 
         if all(r is None for r in responses):
             _LOGGER.info("All poll requests failed, marking connection as lost")
