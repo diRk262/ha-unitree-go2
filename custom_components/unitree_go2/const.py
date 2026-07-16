@@ -10,7 +10,7 @@ SCAN_INTERVAL_SECONDS = 5
 
 MODE_CODES = {
     0: "Idle",
-    100: "Normal",
+    100: "Free Walk",
     1001: "Damping",
     1002: "Balance Stand",
     1003: "Stop Move",
@@ -19,7 +19,8 @@ MODE_CODES = {
     1006: "Recovery Stand",
     1008: "Move",
     1009: "Sit",
-    1013: "Normal Gait",
+    1013: "Endurance",
+    1015: "Normal",
     1016: "Running",
     1091: "Pose",
     2007: "Free Avoid",
