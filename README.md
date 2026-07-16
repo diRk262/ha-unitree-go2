@@ -9,7 +9,7 @@ Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRT
 
 - **Automatic setup** — Log in with your Unitree account, select your robot, done
 - **Auto-discovery** — Finds your Go2 on the local network via multicast
-- **20 sensors** — Battery, temperature, position, speed, IMU, LiDAR status, LED color
+- **17 sensors** — Battery, temperature, position, speed, IMU, LiDAR status
 - **1 binary sensor** — Online status
 - **2 switches** — Obstacle avoidance, LiDAR on/off
 - **2 sliders** — Volume (0–10), head lamp brightness (0–10)
@@ -55,7 +55,6 @@ Your credentials are only used once during setup to fetch the device encryption 
 | Sensor | Unit | Description |
 | --- | --- | --- |
 | Batterie | % | Battery state of charge |
-| Spannung | V | Battery voltage |
 | Strom | A | Battery current |
 | Ladezyklen | | Battery charge cycles |
 | Akku Temp 1/2 | °C | Battery cell temperatures |
@@ -66,11 +65,9 @@ Your credentials are only used once during setup to fetch the device encryption 
 | Körperhöhe | m | Current body height |
 | Geschwindigkeit | m/s | Forward velocity |
 | Modus | | Current operating mode |
-| Gangart | | Current gait type |
 | LiDAR Verschmutzung | % | LiDAR lens dirt level |
 | LiDAR Fehler | | LiDAR error state |
 | IMU Roll/Pitch | ° | Body orientation |
-| LED Farbe | | Current LED color |
 
 ### Switches
 
