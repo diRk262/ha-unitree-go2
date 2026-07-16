@@ -14,7 +14,7 @@ from .lib.unitree_webrtc_connect.webrtc_driver import (
 )
 from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API
 
-from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES
+from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES, GAIT_CODES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "yaw_speed": 0.0,
             "mode": "unknown",
             "error_code": 0,
-            "gait_type": 0,
+            "gait_type": "Idle",
             "lidar_dirty": 0,
             "lidar_error": 0,
             "lidar_cloud_freq": 0.0,
@@ -167,6 +167,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             bms = data.get("bms_state", {})
             if bms:
                 self._sensor_data["battery_percent"] = bms.get("soc", 0)
+                self._sensor_data["battery_voltage"] = round(
+                    bms.get("vol", 0) / 1000, 2
+                )
                 self._sensor_data["battery_current"] = round(
                     bms.get("current", 0) / 1000, 2
                 )
@@ -220,7 +223,8 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 data.get("body_height", 0), 3
             )
             self._sensor_data["yaw_speed"] = round(data.get("yaw_speed", 0), 3)
-            self._sensor_data["gait_type"] = data.get("gait_type", 0)
+            gt = data.get("gait_type", 0)
+            self._sensor_data["gait_type"] = GAIT_CODES.get(gt, f"unknown_{gt}")
 
             vel = data.get("velocity", [0, 0, 0])
             self._sensor_data["velocity_x"] = round(vel[0], 3) if vel else 0
@@ -242,9 +246,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
             self._sensor_data["lidar_dirty"] = data.get("dirty_percentage", 0)
             self._sensor_data["lidar_error"] = data.get("error_state", 0)
-            self._sensor_data["lidar_cloud_freq"] = round(
-                data.get("cloud_frequency", 0), 1
-            )
+            freq = round(data.get("cloud_frequency", 0), 1)
+            self._sensor_data["lidar_cloud_freq"] = freq
+            self._sensor_data["lidar_active"] = freq > 0
         except Exception as exc:
             _LOGGER.debug("LIDAR_STATE parse error: %s", exc)
 
@@ -317,13 +321,21 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
         resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1009})
         responses.append(resp)
-        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
-            try:
-                d = json.loads(resp["data"].get("data", "{}"))
-                color = d.get("color", "")
-                self._sensor_data["led_color"] = color if color else "off"
-            except Exception:
-                pass
+        if resp:
+            _LOGGER.debug("LED response (api_id 1009): %s", resp)
+            status_code = resp.get("data", {}).get("header", {}).get("status", {}).get("code")
+            if status_code == 0:
+                try:
+                    d = json.loads(resp["data"].get("data", "{}"))
+                    r = d.get("r", 0)
+                    g = d.get("g", 0)
+                    b = d.get("b", 0)
+                    if r or g or b:
+                        self._sensor_data["led_color"] = f"#{r:02x}{g:02x}{b:02x}"
+                    else:
+                        self._sensor_data["led_color"] = "off"
+                except Exception:
+                    pass
 
         if all(r is None for r in responses):
             _LOGGER.info("All poll requests failed, marking connection as lost")

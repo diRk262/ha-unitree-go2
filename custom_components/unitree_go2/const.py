@@ -25,9 +25,17 @@ MODE_CODES = {
     1091: "Pose",
     2007: "Free Avoid",
     2008: "Bound",
-    2009: "Free Jump",
-    2010: "Classic Walk",
+    2009: "Jump",
+    2010: "Classic",
     2011: "Hand Stand",
     2016: "Cross Step",
     2017: "Erect",
+}
+
+GAIT_CODES = {
+    0: "Idle",
+    1: "Trot",
+    2: "Run",
+    3: "Climb",
+    4: "Forwardonly",
 }
