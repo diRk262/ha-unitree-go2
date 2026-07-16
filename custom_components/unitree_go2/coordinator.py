@@ -14,7 +14,7 @@ from .lib.unitree_webrtc_connect.webrtc_driver import (
 )
 from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API
 
-from .const import DOMAIN, SCAN_INTERVAL_SECONDS, ERROR_CODES
+from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -230,7 +230,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
             ec = data.get("error_code", 0)
             self._sensor_data["error_code"] = ec
-            self._sensor_data["mode"] = ERROR_CODES.get(ec, f"unknown_{ec}")
+            self._sensor_data["mode"] = MODE_CODES.get(ec, f"unknown_{ec}")
         except Exception as exc:
             _LOGGER.debug("SPORT_STATE parse error: %s", exc)
 

@@ -8,14 +8,25 @@ CONF_PASSWORD = "password"
 
 SCAN_INTERVAL_SECONDS = 5
 
-ERROR_CODES = {
-    0: "idle",
-    1001: "damp",
-    1002: "balance_stand",
-    1003: "stop_move",
-    1004: "stand_up",
-    1005: "stand_down",
-    1006: "recovery_stand",
-    1008: "move",
-    1009: "sit",
+MODE_CODES = {
+    0: "Idle",
+    100: "Normal",
+    1001: "Damping",
+    1002: "Balance Stand",
+    1003: "Stop Move",
+    1004: "Stand Up",
+    1005: "Stand Down",
+    1006: "Recovery Stand",
+    1008: "Move",
+    1009: "Sit",
+    1013: "Normal Gait",
+    1016: "Running",
+    1091: "Pose",
+    2007: "Free Avoid",
+    2008: "Bound",
+    2009: "Free Jump",
+    2010: "Classic Walk",
+    2011: "Hand Stand",
+    2016: "Cross Step",
+    2017: "Erect",
 }
