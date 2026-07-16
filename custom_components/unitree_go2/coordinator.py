@@ -226,6 +226,8 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             gt = data.get("gait_type", 0)
             self._sensor_data["gait_type"] = GAIT_CODES.get(gt, f"unknown_{gt}")
 
+            _LOGGER.debug("SPORT_STATE keys: %s, gait_type raw: %s", list(data.keys()), data.get("gait_type"))
+
             vel = data.get("velocity", [0, 0, 0])
             self._sensor_data["velocity_x"] = round(vel[0], 3) if vel else 0
             self._sensor_data["velocity_y"] = (

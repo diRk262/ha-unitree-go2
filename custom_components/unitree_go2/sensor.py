@@ -18,7 +18,6 @@ SENSOR_DEFINITIONS: list[
     tuple[str, str, str | None, SensorDeviceClass | None, SensorStateClass | None, str | None]
 ] = [
     ("battery_percent", "Batterie", "%", SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT, None),
-    ("battery_voltage", "Spannung", "V", SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT, None),
     ("battery_current", "Strom", "A", SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT, None),
     ("battery_cycles", "Ladezyklen", None, None, SensorStateClass.TOTAL_INCREASING, None),
     ("battery_temp_1", "Akku Temp 1", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
