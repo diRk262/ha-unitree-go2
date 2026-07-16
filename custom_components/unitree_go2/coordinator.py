@@ -5,6 +5,14 @@ import json
 import logging
 from datetime import timedelta
 
+import numpy as np
+
+try:
+    from PIL import Image
+    _HAS_PILLOW = True
+except ImportError:
+    _HAS_PILLOW = False
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -19,6 +27,10 @@ from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 5
+LIDAR_IMG_SIZE = 800
+LIDAR_SCALE = 50
+LIDAR_POINT_SIZE = 2
+LIDAR_ACCUMULATE_FRAMES = 5
 
 
 class Go2DataCoordinator(DataUpdateCoordinator):
@@ -45,6 +57,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._sensor_data: dict = self._empty_data()
         self._last_frame: bytes | None = None
         self._frame_event = asyncio.Event()
+        self._last_lidar_frame: bytes | None = None
+        self._lidar_points: np.ndarray | None = None
+        self._lidar_history: list[np.ndarray] = []
 
     @staticmethod
     def _empty_data() -> dict:
@@ -80,6 +95,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "volume": 0,
             "obstacle_avoidance": "unknown",
+            "led_color": "unknown",
             "online": False,
         }
 
@@ -96,6 +112,8 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._connected = True
         self._sensor_data["online"] = True
 
+        self._conn.datachannel.set_decoder(decoder_type="native")
+
         self._conn.datachannel.pub_sub.subscribe(
             RTC_TOPIC["LOW_STATE"], self._on_low_state
         )
@@ -105,6 +123,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._conn.datachannel.pub_sub.subscribe(
             RTC_TOPIC["ULIDAR_STATE"], self._on_lidar_state
         )
+        self._conn.datachannel.pub_sub.subscribe(
+            RTC_TOPIC["ULIDAR_ARRAY"], self._on_lidar_voxel
+        )
+
+        await self._conn.datachannel.disableTrafficSaving(True)
 
         self._conn.video.switchVideoChannel(True)
         self._conn.video.add_track_callback(self._recv_video)
@@ -119,6 +142,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                     RTC_TOPIC["LF_SPORT_MOD_STATE"]
                 )
                 self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["ULIDAR_STATE"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["ULIDAR_ARRAY"])
             except Exception:
                 pass
             self._connected = False
@@ -153,6 +177,97 @@ class Go2DataCoordinator(DataUpdateCoordinator):
     @property
     def last_frame(self) -> bytes | None:
         return self._last_frame
+
+    # ── LiDAR point cloud ────────────────────────────────────────────
+
+    def _on_lidar_voxel(self, msg: dict) -> None:
+        try:
+            data = msg.get("data", {})
+            decoded = data.get("data", {})
+            points = decoded.get("points") if isinstance(decoded, dict) else None
+            if points is None or not isinstance(points, np.ndarray):
+                return
+            if len(points) == 0:
+                return
+            self._lidar_points = points
+            self._lidar_history.append(points)
+            if len(self._lidar_history) > LIDAR_ACCUMULATE_FRAMES:
+                self._lidar_history = self._lidar_history[-LIDAR_ACCUMULATE_FRAMES:]
+            combined = np.vstack(self._lidar_history)
+            self._render_lidar_topdown(combined)
+        except Exception as exc:
+            _LOGGER.debug("LIDAR voxel parse error: %s", exc)
+
+    def _render_lidar_topdown(self, points: np.ndarray) -> None:
+        """Render point cloud as top-down 2D image (X/Y plane)."""
+        if not _HAS_PILLOW:
+            return
+        try:
+            x = points[:, 0]
+            y = points[:, 1]
+            z = points[:, 2]
+
+            cx = LIDAR_IMG_SIZE // 2
+            cy = LIDAR_IMG_SIZE // 2
+
+            robot_x = self._sensor_data.get("position_x", 0.0)
+            robot_y = self._sensor_data.get("position_y", 0.0)
+
+            px = ((x - robot_x) * LIDAR_SCALE + cx).astype(np.int32)
+            py = (cy - (y - robot_y) * LIDAR_SCALE).astype(np.int32)
+
+            ps = LIDAR_POINT_SIZE
+            mask = (px >= 0) & (px < LIDAR_IMG_SIZE - ps) & (py >= 0) & (py < LIDAR_IMG_SIZE - ps)
+            px = px[mask]
+            py = py[mask]
+            z_masked = z[mask]
+
+            img = np.zeros((LIDAR_IMG_SIZE, LIDAR_IMG_SIZE, 3), dtype=np.uint8)
+            img[:] = 15
+
+            if len(px) > 0:
+                z_min = z_masked.min()
+                z_range = z_masked.max() - z_min
+                if z_range < 0.01:
+                    z_range = 1.0
+                z_norm = (z_masked - z_min) / z_range
+
+                r = (z_norm * 255).astype(np.uint8)
+                g = ((1 - np.abs(z_norm - 0.5) * 2) * 200).astype(np.uint8)
+                b = ((1 - z_norm) * 255).astype(np.uint8)
+
+                for dy in range(ps):
+                    for dx in range(ps):
+                        img[py + dy, px + dx, 0] = r
+                        img[py + dy, px + dx, 1] = g
+                        img[py + dy, px + dx, 2] = b
+
+            # Robot marker (green dot)
+            ms = 4
+            img[cy - ms:cy + ms + 1, cx - ms:cx + ms + 1] = [0, 220, 0]
+
+            # Direction indicator (yaw)
+            yaw = self._sensor_data.get("imu_yaw", 0.0)
+            arrow_len = 15
+            ax = int(cx + np.cos(yaw) * arrow_len)
+            ay = int(cy - np.sin(yaw) * arrow_len)
+            steps = max(abs(ax - cx), abs(ay - cy), 1)
+            for i in range(steps):
+                ix = int(cx + (ax - cx) * i / steps)
+                iy = int(cy + (ay - cy) * i / steps)
+                if 0 <= ix < LIDAR_IMG_SIZE - 1 and 0 <= iy < LIDAR_IMG_SIZE - 1:
+                    img[iy:iy + 2, ix:ix + 2] = [0, 255, 100]
+
+            pil_img = Image.fromarray(img)
+            buf = io.BytesIO()
+            pil_img.save(buf, format="PNG")
+            self._last_lidar_frame = buf.getvalue()
+        except Exception as exc:
+            _LOGGER.debug("LiDAR render error: %s", exc)
+
+    @property
+    def last_lidar_frame(self) -> bytes | None:
+        return self._last_lidar_frame
 
     # ── Data callbacks (READ ONLY) ────────────────────────────────────
 
@@ -314,6 +429,16 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                     )
                 except Exception:
                     pass
+
+        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1007})
+        responses.append(resp)
+        if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
+            try:
+                d = json.loads(resp["data"].get("data", "{}"))
+                color = d.get("color", "")
+                self._sensor_data["led_color"] = color if color else "off"
+            except Exception:
+                pass
 
         if all(r is None for r in responses):
             _LOGGER.info("All poll requests failed, marking connection as lost")

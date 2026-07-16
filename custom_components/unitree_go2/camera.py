@@ -16,14 +16,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: Go2DataCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([Go2Camera(coordinator, entry)])
+    async_add_entities([
+        Go2Camera(coordinator, entry),
+        Go2LidarCamera(coordinator, entry),
+    ])
 
 
 class Go2Camera(Camera):
-    """Camera entity showing the Go2's front camera (read-only)."""
-
     _attr_has_entity_name = True
-    _attr_name = "Kamera"
+    _attr_translation_key = "camera"
     _attr_is_streaming = True
 
     def __init__(
@@ -46,3 +47,31 @@ class Go2Camera(Camera):
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
         return self._coordinator.last_frame
+
+
+class Go2LidarCamera(Camera):
+    _attr_has_entity_name = True
+    _attr_translation_key = "lidar_map"
+    _attr_is_streaming = True
+    _attr_icon = "mdi:radar"
+
+    def __init__(
+        self, coordinator: Go2DataCoordinator, entry: ConfigEntry
+    ) -> None:
+        super().__init__()
+        self._coordinator = coordinator
+        self._attr_unique_id = f"go2_{entry.entry_id}_lidar_camera"
+
+    @property
+    def device_info(self):
+        return {
+            "identifiers": {(DOMAIN, self._coordinator.robot_ip)},
+            "name": f"Go2 Pro ({self._coordinator.serial or self._coordinator.robot_ip})",
+            "manufacturer": "Unitree",
+            "model": "Go2 Pro",
+        }
+
+    async def async_camera_image(
+        self, width: int | None = None, height: int | None = None
+    ) -> bytes | None:
+        return self._coordinator.last_lidar_frame

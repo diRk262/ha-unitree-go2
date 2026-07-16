@@ -52,7 +52,8 @@
       "lidar_dirty": { "name": "LiDAR Verschmutzung" },
       "lidar_error": { "name": "LiDAR Fehler" },
       "imu_roll": { "name": "IMU Roll" },
-      "imu_pitch": { "name": "IMU Pitch" }
+      "imu_pitch": { "name": "IMU Pitch" },
+      "led_color": { "name": "LED Farbe" }
     },
     "binary_sensor": {
       "online": { "name": "Online" }
@@ -64,6 +65,10 @@
     "number": {
       "volume": { "name": "Lautstärke" },
       "brightness": { "name": "Kopflicht" }
+    },
+    "camera": {
+      "camera": { "name": "Kamera" },
+      "lidar_map": { "name": "LiDAR Karte" }
     }
   }
 }
