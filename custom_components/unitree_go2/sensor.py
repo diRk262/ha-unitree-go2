@@ -31,12 +31,10 @@ SENSOR_DEFINITIONS: list[
     ("body_height", "Körperhöhe", "m", None, SensorStateClass.MEASUREMENT, None),
     ("velocity_x", "Geschwindigkeit", "m/s", SensorDeviceClass.SPEED, SensorStateClass.MEASUREMENT, None),
     ("mode", "Modus", None, None, None, "mdi:robot"),
-    ("gait_type", "Gangart", None, None, None, "mdi:walk"),
     ("lidar_dirty", "LiDAR Verschmutzung", "%", None, SensorStateClass.MEASUREMENT, "mdi:radar"),
     ("lidar_error", "LiDAR Fehler", None, None, None, "mdi:alert-circle"),
     ("imu_roll", "IMU Roll", "°", None, SensorStateClass.MEASUREMENT, None),
     ("imu_pitch", "IMU Pitch", "°", None, SensorStateClass.MEASUREMENT, None),
-    ("led_color", "LED Farbe", None, None, None, "mdi:led-on"),
 ]
 
 

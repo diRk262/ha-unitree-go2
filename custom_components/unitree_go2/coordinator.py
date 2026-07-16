@@ -14,7 +14,7 @@ from .lib.unitree_webrtc_connect.webrtc_driver import (
 )
 from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API
 
-from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES, GAIT_CODES
+from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,7 +71,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "yaw_speed": 0.0,
             "mode": "unknown",
             "error_code": 0,
-            "gait_type": "Idle",
             "lidar_dirty": 0,
             "lidar_error": 0,
             "lidar_cloud_freq": 0.0,
@@ -81,7 +80,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "volume": 0,
             "obstacle_avoidance": "unknown",
-            "led_color": "unknown",
             "online": False,
         }
 
@@ -223,10 +221,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 data.get("body_height", 0), 3
             )
             self._sensor_data["yaw_speed"] = round(data.get("yaw_speed", 0), 3)
-            gt = data.get("gait_type", 0)
-            self._sensor_data["gait_type"] = GAIT_CODES.get(gt, f"unknown_{gt}")
-
-            _LOGGER.debug("SPORT_STATE keys: %s, gait_type raw: %s", list(data.keys()), data.get("gait_type"))
 
             vel = data.get("velocity", [0, 0, 0])
             self._sensor_data["velocity_x"] = round(vel[0], 3) if vel else 0
@@ -318,24 +312,6 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                     self._sensor_data["obstacle_avoidance"] = (
                         "on" if d.get("enable") else "off"
                     )
-                except Exception:
-                    pass
-
-        resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1009})
-        responses.append(resp)
-        if resp:
-            _LOGGER.debug("LED response (api_id 1009): %s", resp)
-            status_code = resp.get("data", {}).get("header", {}).get("status", {}).get("code")
-            if status_code == 0:
-                try:
-                    d = json.loads(resp["data"].get("data", "{}"))
-                    r = d.get("r", 0)
-                    g = d.get("g", 0)
-                    b = d.get("b", 0)
-                    if r or g or b:
-                        self._sensor_data["led_color"] = f"#{r:02x}{g:02x}{b:02x}"
-                    else:
-                        self._sensor_data["led_color"] = "off"
                 except Exception:
                     pass
 
