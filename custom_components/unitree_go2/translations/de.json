@@ -32,5 +32,38 @@
     "abort": {
       "already_configured": "Dieser Roboter ist bereits konfiguriert."
     }
+  },
+  "entity": {
+    "sensor": {
+      "battery_percent": { "name": "Batterie" },
+      "battery_current": { "name": "Strom" },
+      "battery_cycles": { "name": "Ladezyklen" },
+      "battery_temp_1": { "name": "Akku Temp 1" },
+      "battery_temp_2": { "name": "Akku Temp 2" },
+      "body_temp": { "name": "Gehäuse Temp" },
+      "motor_temp_max": { "name": "Motor Temp Max" },
+      "power_v": { "name": "Bus-Spannung" },
+      "position_x": { "name": "Position X" },
+      "position_y": { "name": "Position Y" },
+      "position_z": { "name": "Position Z" },
+      "body_height": { "name": "Körperhöhe" },
+      "velocity_x": { "name": "Geschwindigkeit" },
+      "mode": { "name": "Modus" },
+      "lidar_dirty": { "name": "LiDAR Verschmutzung" },
+      "lidar_error": { "name": "LiDAR Fehler" },
+      "imu_roll": { "name": "IMU Roll" },
+      "imu_pitch": { "name": "IMU Pitch" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Online" }
+    },
+    "switch": {
+      "obstacle_avoidance": { "name": "Hinderniserkennung" },
+      "lidar": { "name": "LiDAR" }
+    },
+    "number": {
+      "volume": { "name": "Lautstärke" },
+      "brightness": { "name": "Kopflicht" }
+    }
   }
 }

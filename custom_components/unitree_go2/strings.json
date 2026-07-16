@@ -32,5 +32,38 @@
     "abort": {
       "already_configured": "This robot is already configured."
     }
+  },
+  "entity": {
+    "sensor": {
+      "battery_percent": { "name": "Battery" },
+      "battery_current": { "name": "Current" },
+      "battery_cycles": { "name": "Charge Cycles" },
+      "battery_temp_1": { "name": "Battery Temp 1" },
+      "battery_temp_2": { "name": "Battery Temp 2" },
+      "body_temp": { "name": "Body Temp" },
+      "motor_temp_max": { "name": "Motor Temp Max" },
+      "power_v": { "name": "Bus Voltage" },
+      "position_x": { "name": "Position X" },
+      "position_y": { "name": "Position Y" },
+      "position_z": { "name": "Position Z" },
+      "body_height": { "name": "Body Height" },
+      "velocity_x": { "name": "Velocity" },
+      "mode": { "name": "Mode" },
+      "lidar_dirty": { "name": "LiDAR Dirt Level" },
+      "lidar_error": { "name": "LiDAR Error" },
+      "imu_roll": { "name": "IMU Roll" },
+      "imu_pitch": { "name": "IMU Pitch" }
+    },
+    "binary_sensor": {
+      "online": { "name": "Online" }
+    },
+    "switch": {
+      "obstacle_avoidance": { "name": "Obstacle Avoidance" },
+      "lidar": { "name": "LiDAR" }
+    },
+    "number": {
+      "volume": { "name": "Volume" },
+      "brightness": { "name": "Head Light" }
+    }
   }
 }

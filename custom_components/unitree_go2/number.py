@@ -34,7 +34,7 @@ def _device_info(coordinator: Go2DataCoordinator) -> dict:
 
 class Go2VolumeNumber(CoordinatorEntity[Go2DataCoordinator], NumberEntity):
     _attr_has_entity_name = True
-    _attr_name = "Lautstärke"
+    _attr_translation_key = "volume"
     _attr_icon = "mdi:volume-high"
     _attr_native_min_value = 0
     _attr_native_max_value = 10
@@ -61,7 +61,7 @@ class Go2VolumeNumber(CoordinatorEntity[Go2DataCoordinator], NumberEntity):
 
 class Go2BrightnessNumber(CoordinatorEntity[Go2DataCoordinator], NumberEntity):
     _attr_has_entity_name = True
-    _attr_name = "Kopflicht"
+    _attr_translation_key = "brightness"
     _attr_icon = "mdi:brightness-6"
     _attr_native_min_value = 0
     _attr_native_max_value = 10

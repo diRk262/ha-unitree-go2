@@ -27,7 +27,7 @@ async def async_setup_entry(
 
 class Go2OnlineSensor(CoordinatorEntity[Go2DataCoordinator], BinarySensorEntity):
     _attr_has_entity_name = True
-    _attr_name = "Online"
+    _attr_translation_key = "online"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
     def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:

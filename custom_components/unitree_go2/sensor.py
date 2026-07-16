@@ -15,26 +15,26 @@ from .const import DOMAIN
 from .coordinator import Go2DataCoordinator
 
 SENSOR_DEFINITIONS: list[
-    tuple[str, str, str | None, SensorDeviceClass | None, SensorStateClass | None, str | None]
+    tuple[str, str | None, SensorDeviceClass | None, SensorStateClass | None, str | None]
 ] = [
-    ("battery_percent", "Batterie", "%", SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT, None),
-    ("battery_current", "Strom", "A", SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT, None),
-    ("battery_cycles", "Ladezyklen", None, None, SensorStateClass.TOTAL_INCREASING, None),
-    ("battery_temp_1", "Akku Temp 1", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
-    ("battery_temp_2", "Akku Temp 2", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
-    ("body_temp", "Gehäuse Temp", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
-    ("motor_temp_max", "Motor Temp Max", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
-    ("power_v", "Bus-Spannung", "V", SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT, None),
-    ("position_x", "Position X", "m", None, SensorStateClass.MEASUREMENT, None),
-    ("position_y", "Position Y", "m", None, SensorStateClass.MEASUREMENT, None),
-    ("position_z", "Position Z", "m", None, SensorStateClass.MEASUREMENT, None),
-    ("body_height", "Körperhöhe", "m", None, SensorStateClass.MEASUREMENT, None),
-    ("velocity_x", "Geschwindigkeit", "m/s", SensorDeviceClass.SPEED, SensorStateClass.MEASUREMENT, None),
-    ("mode", "Modus", None, None, None, "mdi:robot"),
-    ("lidar_dirty", "LiDAR Verschmutzung", "%", None, SensorStateClass.MEASUREMENT, "mdi:radar"),
-    ("lidar_error", "LiDAR Fehler", None, None, None, "mdi:alert-circle"),
-    ("imu_roll", "IMU Roll", "°", None, SensorStateClass.MEASUREMENT, None),
-    ("imu_pitch", "IMU Pitch", "°", None, SensorStateClass.MEASUREMENT, None),
+    ("battery_percent", "%", SensorDeviceClass.BATTERY, SensorStateClass.MEASUREMENT, None),
+    ("battery_current", "A", SensorDeviceClass.CURRENT, SensorStateClass.MEASUREMENT, None),
+    ("battery_cycles", None, None, SensorStateClass.TOTAL_INCREASING, None),
+    ("battery_temp_1", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
+    ("battery_temp_2", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
+    ("body_temp", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
+    ("motor_temp_max", "°C", SensorDeviceClass.TEMPERATURE, SensorStateClass.MEASUREMENT, None),
+    ("power_v", "V", SensorDeviceClass.VOLTAGE, SensorStateClass.MEASUREMENT, None),
+    ("position_x", "m", None, SensorStateClass.MEASUREMENT, None),
+    ("position_y", "m", None, SensorStateClass.MEASUREMENT, None),
+    ("position_z", "m", None, SensorStateClass.MEASUREMENT, None),
+    ("body_height", "m", None, SensorStateClass.MEASUREMENT, None),
+    ("velocity_x", "m/s", SensorDeviceClass.SPEED, SensorStateClass.MEASUREMENT, None),
+    ("mode", None, None, None, "mdi:robot"),
+    ("lidar_dirty", "%", None, SensorStateClass.MEASUREMENT, "mdi:radar"),
+    ("lidar_error", None, None, None, "mdi:alert-circle"),
+    ("imu_roll", "°", None, SensorStateClass.MEASUREMENT, None),
+    ("imu_pitch", "°", None, SensorStateClass.MEASUREMENT, None),
 ]
 
 
@@ -57,7 +57,6 @@ class Go2Sensor(CoordinatorEntity[Go2DataCoordinator], SensorEntity):
         coordinator: Go2DataCoordinator,
         entry: ConfigEntry,
         key: str,
-        name: str,
         unit: str | None,
         device_class: SensorDeviceClass | None,
         state_class: SensorStateClass | None,
@@ -65,7 +64,7 @@ class Go2Sensor(CoordinatorEntity[Go2DataCoordinator], SensorEntity):
     ) -> None:
         super().__init__(coordinator)
         self._key = key
-        self._attr_name = name
+        self._attr_translation_key = key
         self._attr_unique_id = f"go2_{entry.entry_id}_{key}"
         self._attr_native_unit_of_measurement = unit
         self._attr_device_class = device_class

@@ -12,8 +12,10 @@ Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRT
 - **17 sensors** — Battery, temperature, position, speed, IMU, LiDAR status
 - **1 binary sensor** — Online status
 - **2 switches** — Obstacle avoidance, LiDAR on/off
-- **2 sliders** — Volume (0–10), head lamp brightness (0–10)
-- **Camera** — Live camera stream from the Go2's front camera
+- **2 sliders** — Volume (0–10), head light brightness (0–10)
+- **Camera** — Live stream from the Go2's front camera
+- **Auto-reconnect** — Automatically reconnects when the robot restarts
+- **Localized** — English and German translations
 
 ## Supported Models
 
@@ -54,41 +56,41 @@ Your credentials are only used once during setup to fetch the device encryption 
 
 | Sensor | Unit | Description |
 | --- | --- | --- |
-| Batterie | % | Battery state of charge |
-| Strom | A | Battery current |
-| Ladezyklen | | Battery charge cycles |
-| Akku Temp 1/2 | °C | Battery cell temperatures |
-| Gehäuse Temp | °C | Body temperature |
+| Battery | % | Battery state of charge |
+| Current | A | Battery current |
+| Charge Cycles | | Battery charge cycles |
+| Battery Temp 1/2 | °C | Battery cell temperatures |
+| Body Temp | °C | Body temperature |
 | Motor Temp Max | °C | Hottest motor temperature |
-| Bus-Spannung | V | Main bus voltage |
+| Bus Voltage | V | Main bus voltage |
 | Position X/Y/Z | m | Odometry position |
-| Körperhöhe | m | Current body height |
-| Geschwindigkeit | m/s | Forward velocity |
-| Modus | | Current operating mode |
-| LiDAR Verschmutzung | % | LiDAR lens dirt level |
-| LiDAR Fehler | | LiDAR error state |
+| Body Height | m | Current body height |
+| Velocity | m/s | Forward velocity |
+| Mode | | Current operating mode (21 mapped modes) |
+| LiDAR Dirt Level | % | LiDAR lens dirt level |
+| LiDAR Error | | LiDAR error state |
 | IMU Roll/Pitch | ° | Body orientation |
 
 ### Switches
 
 | Switch | Description |
 | --- | --- |
-| Hinderniserkennung | Toggle obstacle avoidance on/off |
+| Obstacle Avoidance | Toggle obstacle avoidance on/off |
 | LiDAR | Toggle LiDAR on/off |
 
 ### Sliders (Number)
 
 | Slider | Range | Description |
 | --- | --- | --- |
-| Lautstärke | 0–10 | Speaker volume |
-| Kopflicht | 0–10 | Head lamp brightness |
+| Volume | 0–10 | Speaker volume |
+| Head Light | 0–10 | Head lamp brightness |
 
 ### Other
 
 | Entity | Type | Description |
 | --- | --- | --- |
 | Online | Binary Sensor | Connection status |
-| Kamera | Camera | Live front camera stream |
+| Camera | Camera | Live front camera stream |
 
 ## Requirements
 
@@ -106,6 +108,7 @@ Your credentials are only used once during setup to fetch the device encryption 
 **Connection drops**
 - The Go2 only supports one WebRTC connection at a time
 - Close the Unitree mobile app before using this integration
+- The integration will automatically reconnect when the connection is restored
 
 **Camera not showing**
 - The camera requires the `av` (PyAV) Python package

@@ -34,7 +34,7 @@ def _device_info(coordinator: Go2DataCoordinator) -> dict:
 
 class Go2ObstacleAvoidanceSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
     _attr_has_entity_name = True
-    _attr_name = "Hinderniserkennung"
+    _attr_translation_key = "obstacle_avoidance"
     _attr_icon = "mdi:shield-alert"
 
     def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
@@ -63,7 +63,7 @@ class Go2ObstacleAvoidanceSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEn
 
 class Go2LidarSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
     _attr_has_entity_name = True
-    _attr_name = "LiDAR"
+    _attr_translation_key = "lidar"
     _attr_icon = "mdi:radar"
 
     def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
