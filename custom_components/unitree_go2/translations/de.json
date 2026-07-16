@@ -52,7 +52,7 @@
       "lidar_dirty": { "name": "LiDAR Verschmutzung" },
       "lidar_error": { "name": "LiDAR Fehler" },
       "imu_roll": { "name": "IMU Roll" },
-      "imu_pitch": { "name": "IMU Pitch" },
+      "imu_pitch": { "name": "IMU Pitch" }
     },
     "binary_sensor": {
       "online": { "name": "Online" }
