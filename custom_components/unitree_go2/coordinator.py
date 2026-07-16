@@ -250,6 +250,20 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
     # ── Polled values ─────────────────────────────────────────────────
 
+    def _check_connection(self) -> bool:
+        if not self._conn or not self._connected:
+            return False
+        try:
+            dc = self._conn.datachannel
+            if dc and dc.channel and dc.channel.readyState == "open":
+                return True
+        except Exception:
+            pass
+        _LOGGER.info("WebRTC connection lost, will reconnect")
+        self._connected = False
+        self._sensor_data["online"] = False
+        return False
+
     async def _safe_request(self, topic, options):
         try:
             return await asyncio.wait_for(
@@ -264,7 +278,10 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         if not self._conn or not self._connected:
             return
 
+        responses = []
+
         resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1006})
+        responses.append(resp)
         if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
             try:
                 d = json.loads(resp["data"].get("data", "{}"))
@@ -273,6 +290,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 pass
 
         resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1004})
+        responses.append(resp)
         if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
             try:
                 d = json.loads(resp["data"].get("data", "{}"))
@@ -284,6 +302,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             RTC_TOPIC["OBSTACLES_AVOID"],
             {"api_id": OBSTACLES_AVOID_API["SWITCH_GET"]},
         )
+        responses.append(resp)
         if resp:
             code = resp.get("data", {}).get("header", {}).get("status", {}).get("code", -1)
             raw = resp.get("data", {}).get("data", "")
@@ -297,6 +316,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                     pass
 
         resp = await self._safe_request(RTC_TOPIC["VUI"], {"api_id": 1009})
+        responses.append(resp)
         if resp and resp.get("data", {}).get("header", {}).get("status", {}).get("code") == 0:
             try:
                 d = json.loads(resp["data"].get("data", "{}"))
@@ -304,6 +324,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 self._sensor_data["led_color"] = color if color else "off"
             except Exception:
                 pass
+
+        if all(r is None for r in responses):
+            _LOGGER.info("All poll requests failed, marking connection as lost")
+            self._connected = False
+            self._sensor_data["online"] = False
 
     # ── Commands ──────────────────────────────────────────────────────
 
@@ -350,6 +375,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
     # ── Coordinator update ────────────────────────────────────────────
 
     async def _async_update_data(self) -> dict:
+        if self._connected:
+            self._check_connection()
+
         if not self._connected:
             try:
                 await self.async_connect()
