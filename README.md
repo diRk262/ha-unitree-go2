@@ -3,21 +3,22 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/v/release/diRk262/ha-unitree-go2)](https://github.com/diRk262/ha-unitree-go2/releases)
 
-Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRTC (local network) and exposes sensors, status and camera as native HA entities.
+Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRTC (local network) and exposes sensors, controls and camera as native HA entities.
 
 ## Features
 
 - **Automatic setup** — Log in with your Unitree account, select your robot, done
 - **Auto-discovery** — Finds your Go2 on the local network via multicast
-- **22 sensors** — Battery, temperature, position, speed, IMU, LiDAR status, brightness, volume
-- **2 binary sensors** — Online status, obstacle avoidance
+- **20 sensors** — Battery, temperature, position, speed, IMU, LiDAR status, LED color
+- **1 binary sensor** — Online status
+- **2 switches** — Obstacle avoidance, LiDAR on/off
+- **2 sliders** — Volume (0–10), head lamp brightness (0–10)
 - **Camera** — Live camera stream from the Go2's front camera
-- **Read-only** — This integration does NOT send any commands to the robot
 
 ## Supported Models
 
 | Model | Status |
-|-------|--------|
+| --- | --- |
 | Go2 Pro | Tested |
 | Go2 EDU | Should work (untested) |
 | Go2 Air | Limited (no LiDAR sensors) |
@@ -47,10 +48,12 @@ Home Assistant integration for the **Unitree Go2** robot dog. Connects via WebRT
 
 Your credentials are only used once during setup to fetch the device encryption key. They are **not stored** and **not transmitted** anywhere except to the official Unitree cloud API.
 
-## Sensors
+## Entities
+
+### Sensors
 
 | Sensor | Unit | Description |
-|--------|------|-------------|
+| --- | --- | --- |
 | Batterie | % | Battery state of charge |
 | Spannung | V | Battery voltage |
 | Strom | A | Battery current |
@@ -67,11 +70,28 @@ Your credentials are only used once during setup to fetch the device encryption 
 | LiDAR Verschmutzung | % | LiDAR lens dirt level |
 | LiDAR Fehler | | LiDAR error state |
 | IMU Roll/Pitch | ° | Body orientation |
-| Helligkeit | | Head light brightness (0-10) |
-| Lautstärke | | Speaker volume (0-10) |
-| Online | | Connection status |
-| Hinderniserkennung | | Obstacle avoidance on/off |
-| Kamera | | Live front camera stream |
+| LED Farbe | | Current LED color |
+
+### Switches
+
+| Switch | Description |
+| --- | --- |
+| Hinderniserkennung | Toggle obstacle avoidance on/off |
+| LiDAR | Toggle LiDAR on/off |
+
+### Sliders (Number)
+
+| Slider | Range | Description |
+| --- | --- | --- |
+| Lautstärke | 0–10 | Speaker volume |
+| Kopflicht | 0–10 | Head lamp brightness |
+
+### Other
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Online | Binary Sensor | Connection status |
+| Kamera | Camera | Live front camera stream |
 
 ## Requirements
 
@@ -98,7 +118,6 @@ Your credentials are only used once during setup to fetch the device encryption 
 
 - Credentials are used **once** during setup, then discarded
 - All communication happens **locally** via WebRTC — no cloud relay
-- The integration is **read-only** — it cannot move or control the robot
 - No telemetry, no tracking, no external calls after setup
 
 ## Credits
