@@ -110,6 +110,30 @@ erect:
   name: Erect
   description: Stand up on hind legs (Double Click R2). Requires movement switch.
 
+move_forward:
+  name: Move Forward
+  description: Move forward for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
+move_backward:
+  name: Move Backward
+  description: Move backward for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
+move_left:
+  name: Move Left
+  description: Strafe left for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
+move_right:
+  name: Move Right
+  description: Strafe right for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
+turn_left:
+  name: Turn Left
+  description: Turn left for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
+turn_right:
+  name: Turn Right
+  description: Turn right for a short impulse. Speed from Move Speed slider. Requires movement switch.
+
 move:
   name: Move
   description: Move the robot with obstacle avoidance. Requires movement switch.

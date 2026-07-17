@@ -5,6 +5,7 @@ import logging
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_call_later
@@ -47,6 +48,7 @@ class Go2ObstacleAvoidanceSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEn
     _attr_has_entity_name = True
     _attr_translation_key = "obstacle_avoidance"
     _attr_icon = "mdi:shield-alert"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
@@ -76,6 +78,7 @@ class Go2LidarSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "lidar"
     _attr_icon = "mdi:radar"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
