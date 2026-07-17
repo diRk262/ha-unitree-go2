@@ -69,6 +69,8 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self.stationary_switch = None
         self.movement_switch = None
         self.command_select = None
+        self.move_speed = None
+        self.move_duration = None
         self._move_api_enabled = False
 
     @staticmethod
@@ -569,6 +571,17 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
         if self.movement_switch:
             self.movement_switch.reset_timeout()
+
+    async def async_move_direction(self, x: float, y: float, yaw: float) -> None:
+        speed = 0.3
+        if self.move_speed is not None:
+            speed = self.move_speed.native_value
+        duration = 0.5
+        if self.move_duration is not None:
+            duration = self.move_duration.native_value
+        await self.async_move(x=x * speed, y=y * speed, yaw=yaw * speed)
+        await asyncio.sleep(duration)
+        await self.async_move(x=0, y=0, yaw=0)
 
     async def async_emergency_stop(self) -> None:
         _LOGGER.warning("EMERGENCY STOP triggered")

@@ -65,14 +65,22 @@
     },
     "button": {
       "emergency_stop": { "name": "Notaus" },
-      "execute_command": { "name": "Befehl ausführen" }
+      "execute_command": { "name": "Befehl ausführen" },
+      "move_forward": { "name": "Vorwärts" },
+      "move_backward": { "name": "Rückwärts" },
+      "move_left": { "name": "Links" },
+      "move_right": { "name": "Rechts" },
+      "turn_left": { "name": "Drehen Links" },
+      "turn_right": { "name": "Drehen Rechts" }
     },
     "select": {
       "command_select": { "name": "Befehl" }
     },
     "number": {
       "volume": { "name": "Lautstärke" },
-      "brightness": { "name": "Kopflicht" }
+      "brightness": { "name": "Kopflicht" },
+      "move_speed": { "name": "Bewegungsgeschwindigkeit" },
+      "move_duration": { "name": "Bewegungsdauer" }
     },
     "camera": {
       "camera": { "name": "Kamera" },

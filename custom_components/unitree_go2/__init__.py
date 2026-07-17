@@ -65,9 +65,28 @@ def _register_services(hass: HomeAssistant) -> None:
         DOMAIN, "move", handle_move, schema=MOVE_SCHEMA,
     )
 
+    directions = {
+        "move_forward":  (1, 0, 0),
+        "move_backward": (-1, 0, 0),
+        "move_left":     (0, 1, 0),
+        "move_right":    (0, -1, 0),
+        "turn_left":     (0, 0, 1),
+        "turn_right":    (0, 0, -1),
+    }
+
+    for name, (x, y, yaw) in directions.items():
+        def _make_dir_handler(dx, dy, dyaw):
+            async def handler(call: ServiceCall) -> None:
+                coordinator = _get_coordinator(call.hass)
+                await coordinator.async_move_direction(dx, dy, dyaw)
+            return handler
+        hass.services.async_register(DOMAIN, name, _make_dir_handler(x, y, yaw))
+
+DIRECTION_SERVICES = ["move_forward", "move_backward", "move_left", "move_right", "turn_left", "turn_right"]
+
 
 def _all_service_names() -> list[str]:
-    return _all_command_names() + ["move"]
+    return _all_command_names() + ["move"] + DIRECTION_SERVICES
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

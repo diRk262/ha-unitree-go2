@@ -65,14 +65,22 @@
     },
     "button": {
       "emergency_stop": { "name": "Emergency Stop" },
-      "execute_command": { "name": "Execute Command" }
+      "execute_command": { "name": "Execute Command" },
+      "move_forward": { "name": "Move Forward" },
+      "move_backward": { "name": "Move Backward" },
+      "move_left": { "name": "Move Left" },
+      "move_right": { "name": "Move Right" },
+      "turn_left": { "name": "Turn Left" },
+      "turn_right": { "name": "Turn Right" }
     },
     "select": {
       "command_select": { "name": "Command" }
     },
     "number": {
       "volume": { "name": "Volume" },
-      "brightness": { "name": "Head Light" }
+      "brightness": { "name": "Head Light" },
+      "move_speed": { "name": "Move Speed" },
+      "move_duration": { "name": "Move Duration" }
     },
     "camera": {
       "camera": { "name": "Camera" },
