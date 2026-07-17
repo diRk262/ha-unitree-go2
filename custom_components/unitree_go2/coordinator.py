@@ -20,9 +20,15 @@ from .lib.unitree_webrtc_connect.webrtc_driver import (
     UnitreeWebRTCConnection,
     WebRTCConnectionMethod,
 )
+from homeassistant.exceptions import HomeAssistantError
+
 from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API
 
-from .const import DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES
+from .const import (
+    DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES,
+    STATIONARY_COMMANDS, STATIONARY_CONTROLLER_COMMANDS,
+    MOVEMENT_CONTROLLER_COMMANDS, DOUBLE_CLICK_COMMANDS, BUTTON_START,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +66,10 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._last_lidar_frame: bytes | None = None
         self._lidar_points: np.ndarray | None = None
         self._lidar_history: list[np.ndarray] = []
+        self.stationary_switch = None
+        self.movement_switch = None
+        self.command_select = None
+        self._move_api_enabled = False
 
     @staticmethod
     def _empty_data() -> dict:
@@ -475,6 +485,151 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         )
         self._sensor_data["lidar_active"] = enable
         self.async_set_updated_data(dict(self._sensor_data))
+
+    # ── Movement commands ──────────────────────────────────────────────
+
+    def _check_stationary_allowed(self) -> None:
+        stationary_on = self.stationary_switch and self.stationary_switch.is_on
+        movement_on = self.movement_switch and self.movement_switch.is_on
+        if not stationary_on and not movement_on:
+            raise HomeAssistantError(
+                "Commands switch is OFF. Enable it first."
+            )
+
+    def _check_movement_allowed(self) -> None:
+        if not self.movement_switch or not self.movement_switch.is_on:
+            raise HomeAssistantError(
+                "Movement switch is OFF. Enable it first."
+            )
+
+    async def async_sport_command(self, command: str, parameter: dict | None = None) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+
+        if command in STATIONARY_COMMANDS:
+            self._check_stationary_allowed()
+            api_id = STATIONARY_COMMANDS[command]
+            options = {"api_id": api_id}
+            if parameter:
+                options["parameter"] = parameter
+            _LOGGER.info("Sending sport command: %s (api_id=%d)", command, api_id)
+            await self._safe_request(RTC_TOPIC["SPORT_MOD"], options)
+            if self.stationary_switch:
+                self.stationary_switch.reset_timeout()
+
+        elif command in STATIONARY_CONTROLLER_COMMANDS:
+            self._check_stationary_allowed()
+            keys = STATIONARY_CONTROLLER_COMMANDS[command]
+            _LOGGER.info("Sending controller command: %s (keys=%d)", command, keys)
+            await self.async_send_button(keys)
+            if self.stationary_switch:
+                self.stationary_switch.reset_timeout()
+
+        elif command in MOVEMENT_CONTROLLER_COMMANDS:
+            self._check_movement_allowed()
+            keys = MOVEMENT_CONTROLLER_COMMANDS[command]
+            _LOGGER.info("Sending controller command: %s (keys=%d)", command, keys)
+            await self.async_send_button(keys)
+            if self.movement_switch:
+                self.movement_switch.reset_timeout()
+
+        elif command in DOUBLE_CLICK_COMMANDS:
+            self._check_movement_allowed()
+            keys = DOUBLE_CLICK_COMMANDS[command]
+            _LOGGER.info("Sending double-click command: %s (keys=%d)", command, keys)
+            await self.async_send_double_click(keys)
+            if self.movement_switch:
+                self.movement_switch.reset_timeout()
+
+        else:
+            raise HomeAssistantError(f"Unknown command: {command}")
+
+    async def async_move(self, x: float, y: float, yaw: float) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._check_movement_allowed()
+
+        x = max(-1.0, min(1.0, x))
+        y = max(-1.0, min(1.0, y))
+        yaw = max(-1.0, min(1.0, yaw))
+
+        if not self._move_api_enabled:
+            await self._safe_request(
+                RTC_TOPIC["OBSTACLES_AVOID"],
+                {"api_id": OBSTACLES_AVOID_API["USE_REMOTE_COMMAND_FROM_API"],
+                 "parameter": {"is_remote_commands_from_api": True}},
+            )
+            self._move_api_enabled = True
+
+        await self._safe_request(
+            RTC_TOPIC["OBSTACLES_AVOID"],
+            {"api_id": OBSTACLES_AVOID_API["MOVE"],
+             "parameter": {"x": x, "y": y, "yaw": yaw, "mode": 0}},
+        )
+
+        if self.movement_switch:
+            self.movement_switch.reset_timeout()
+
+    async def async_emergency_stop(self) -> None:
+        _LOGGER.warning("EMERGENCY STOP triggered")
+        if self._conn and self._connected:
+            if self._move_api_enabled:
+                await self._safe_request(
+                    RTC_TOPIC["OBSTACLES_AVOID"],
+                    {"api_id": OBSTACLES_AVOID_API["MOVE"],
+                     "parameter": {"x": 0, "y": 0, "yaw": 0, "mode": 0}},
+                )
+                self._move_api_enabled = False
+
+            wc_data = {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "keys": BUTTON_START}
+            self._conn.datachannel.pub_sub.publish_without_callback(
+                RTC_TOPIC["WIRELESS_CONTROLLER"], wc_data,
+            )
+            await asyncio.sleep(0.4)
+            wc_data["keys"] = 0
+            self._conn.datachannel.pub_sub.publish_without_callback(
+                RTC_TOPIC["WIRELESS_CONTROLLER"], wc_data,
+            )
+        if self.movement_switch:
+            await self.movement_switch.async_turn_off()
+        if self.stationary_switch:
+            await self.stationary_switch.async_turn_off()
+
+    async def async_send_button(self, keys: int) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        _LOGGER.info("Sending wireless controller keys=%d", keys)
+        wc_data = {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "keys": keys}
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_data,
+        )
+        await asyncio.sleep(0.4)
+        wc_data["keys"] = 0
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_data,
+        )
+
+    async def async_send_double_click(self, keys: int) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        _LOGGER.info("Sending double-click keys=%d", keys)
+        wc_zero = {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "keys": 0}
+        wc_press = {"lx": 0.0, "ly": 0.0, "rx": 0.0, "ry": 0.0, "keys": keys}
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_press,
+        )
+        await asyncio.sleep(0.1)
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_zero,
+        )
+        await asyncio.sleep(0.15)
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_press,
+        )
+        await asyncio.sleep(0.1)
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["WIRELESS_CONTROLLER"], wc_zero,
+        )
 
     # ── Coordinator update ────────────────────────────────────────────
 

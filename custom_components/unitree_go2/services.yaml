@@ -1,0 +1,146 @@
+balance_stand:
+  name: Balance Stand
+  description: Hold a stable standing position.
+
+stop_move:
+  name: Stop Move
+  description: Immediately stop all movement.
+
+content:
+  name: Content
+  description: Perform a happy/content animation (stamps front paws).
+
+unlock_gait:
+  name: Unlock / Default Gait
+  description: Reset to default gait / free walk mode (START). Requires movement switch.
+
+stand_lock:
+  name: Stand Lock / Low Down
+  description: Toggle between standing and lying down (L2+A). Standing locks position, repeat to lie down.
+
+sit:
+  name: Sit Down
+  description: Sit down (R1+B).
+
+hello:
+  name: Shake Hands
+  description: Wave / give paw (R2+B).
+
+stretch:
+  name: Stretch
+  description: Perform a stretching motion (R2+A).
+
+heart:
+  name: Love
+  description: Perform the heart gesture (R2+Y).
+
+greet:
+  name: Greet
+  description: Sit on hind legs and wave with both arms (L1+A).
+
+pose:
+  name: Pose
+  description: Strike a pose (SELECT).
+
+endurance:
+  name: Endurance
+  description: Toggle energy-saving mode (L1+SELECT).
+
+recovery_stand:
+  name: Stand Up From Fall
+  description: Stand up after a fall (L2+X). Requires movement switch.
+
+front_jump:
+  name: Jump Forward
+  description: Jump forward (R1+A). Requires movement switch.
+
+front_pounce:
+  name: Pounce
+  description: Pounce forward (R1+X). Requires movement switch.
+
+dance1:
+  name: Dance 1
+  description: Perform dance routine 1 (L1+B). Requires movement switch.
+
+dance2:
+  name: Dance 2
+  description: Perform dance routine 2 (L1+X). Requires movement switch.
+
+running:
+  name: Running Mode
+  description: Switch to running gait (L2+START). Requires movement switch.
+
+normal:
+  name: Normal Mode
+  description: Switch to normal gait (L1+START). Requires movement switch.
+
+classic:
+  name: Classic
+  description: Switch to classic gait (D-Pad+START). Requires movement switch.
+
+free_walk:
+  name: Free Walk
+  description: Switch to free walk mode (D-Pad+START). Requires movement switch.
+
+damp:
+  name: Damping Mode
+  description: "WARNING: Disables ALL motors immediately. The robot will collapse to the ground (L2+B). Requires movement switch."
+
+free_avoid:
+  name: Free Avoid
+  description: Toggle obstacle avoidance walking mode (Double Click A). Requires movement switch.
+
+cross_step:
+  name: Cross Step
+  description: Walk with crossing steps (Double Click B). Requires movement switch.
+
+bound:
+  name: Bound Gait
+  description: Switch to bound gait (Double Click X). Requires movement switch.
+
+jump_gait:
+  name: Jump Gait
+  description: Switch to jump gait (Double Click Y). Requires movement switch.
+
+handstand:
+  name: Hand Stand
+  description: Perform a handstand (Double Click R1). Requires movement switch.
+
+erect:
+  name: Erect
+  description: Stand up on hind legs (Double Click R2). Requires movement switch.
+
+move:
+  name: Move
+  description: Move the robot with obstacle avoidance. Requires movement switch.
+  fields:
+    x:
+      name: Forward/Backward
+      description: "Forward (+) / backward (-) speed, range -1.0 to 1.0"
+      required: true
+      selector:
+        number:
+          min: -1.0
+          max: 1.0
+          step: 0.1
+          mode: slider
+    y:
+      name: Left/Right
+      description: "Left (+) / right (-) speed, range -1.0 to 1.0"
+      required: true
+      selector:
+        number:
+          min: -1.0
+          max: 1.0
+          step: 0.1
+          mode: slider
+    yaw:
+      name: Rotation
+      description: "Turn left (+) / right (-) speed, range -1.0 to 1.0"
+      required: true
+      selector:
+        number:
+          min: -1.0
+          max: 1.0
+          step: 0.1
+          mode: slider

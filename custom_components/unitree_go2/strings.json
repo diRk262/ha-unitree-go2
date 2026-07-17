@@ -59,7 +59,16 @@
     },
     "switch": {
       "obstacle_avoidance": { "name": "Obstacle Avoidance" },
-      "lidar": { "name": "LiDAR" }
+      "lidar": { "name": "LiDAR" },
+      "commands_enabled": { "name": "Commands" },
+      "movement_enabled": { "name": "Movement" }
+    },
+    "button": {
+      "emergency_stop": { "name": "Emergency Stop" },
+      "execute_command": { "name": "Execute Command" }
+    },
+    "select": {
+      "command_select": { "name": "Command" }
     },
     "number": {
       "volume": { "name": "Volume" },
