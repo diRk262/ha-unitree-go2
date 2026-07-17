@@ -59,7 +59,16 @@
     },
     "switch": {
       "obstacle_avoidance": { "name": "Hinderniserkennung" },
-      "lidar": { "name": "LiDAR" }
+      "lidar": { "name": "LiDAR" },
+      "commands_enabled": { "name": "Befehle" },
+      "movement_enabled": { "name": "Bewegung" }
+    },
+    "button": {
+      "emergency_stop": { "name": "Notaus" },
+      "execute_command": { "name": "Befehl ausführen" }
+    },
+    "select": {
+      "command_select": { "name": "Befehl" }
     },
     "number": {
       "volume": { "name": "Lautstärke" },
