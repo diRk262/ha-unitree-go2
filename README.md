@@ -187,13 +187,15 @@ Voice commands work with HA Assist (German and English):
 
 | Voice Command | Action |
 | --- | --- |
-| "Robo sitz" / "Robo sit" | Sit down |
-| "Robo steh auf" / "Robo stand up" | Stand up |
-| "Robo vorwärts" / "Robo forward" | Move forward |
-| "Robo stopp" / "Robo stop" | Emergency stop |
-| "Robo tanz" / "Robo dance" | Dance |
-| "Robo Befehle an/aus" | Enable/disable commands |
-| "Robo Bewegung an/aus" | Enable/disable movement |
+| "{name} sitz" / "{name} sit" | Sit down |
+| "{name} steh auf" / "{name} stand up" | Stand up |
+| "{name} vorwärts" / "{name} forward" | Move forward |
+| "{name} stopp" / "{name} stop" | Emergency stop |
+| "{name} tanz" / "{name} dance" | Dance |
+| "{name} Befehle an/aus" | Enable/disable commands |
+| "{name} Bewegung an/aus" | Enable/disable movement |
+
+`{name}` is the robot name you chose during setup (e.g. "Robo", "Rex", "Buddy").
 
 Commands are automatically chained: after a trick (sit, dance, etc.), the robot auto-stands before the next command. After stand lock, it auto-switches to normal mode.
 
