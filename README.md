@@ -57,8 +57,11 @@ Tested on **Go2 Pro with firmware 1.1.15**.
 3. Enter your Unitree account email and password
 4. Select your robot from the list
 5. The integration will try to find your robot automatically — if not found, enter the IP manually
+6. Choose a **robot name** for voice control (e.g. "Robo", "Rex", "Buddy") — default is "Go2"
 
 Your credentials are only used once during setup to fetch the device encryption key. They are **not stored** and **not transmitted** anywhere except to the official Unitree cloud API.
+
+The robot name can be changed later in **Settings → Devices & Services → Unitree Go2 → Configure**.
 
 ## Entities
 
@@ -183,21 +186,75 @@ All commands are also available as HA services for use in automations:
 
 ## Voice Control
 
-Voice commands work with HA Assist (German and English):
+Voice commands work with [HA Assist](https://www.home-assistant.io/voice_control/) in German and English. The integration automatically installs custom sentences when loaded.
 
-| Voice Command | Action |
+### How it works
+
+Commands use the **robot name** you chose during setup. If you named your robot "Rex", you say "Rex sitz". The name is optional in brackets — you can also just say "Roboter sitz" or "Hund sitz" as fallback.
+
+| Trigger | Example (name = "Rex") |
 | --- | --- |
-| "{name} sitz" / "{name} sit" | Sit down |
-| "{name} steh auf" / "{name} stand up" | Stand up |
-| "{name} vorwärts" / "{name} forward" | Move forward |
-| "{name} stopp" / "{name} stop" | Emergency stop |
-| "{name} tanz" / "{name} dance" | Dance |
-| "{name} Befehle an/aus" | Enable/disable commands |
-| "{name} Bewegung an/aus" | Enable/disable movement |
+| `{name} {command}` | "Rex sitz", "Rex tanz", "Rex steh auf" |
+| `{name} mach {command}` | "Rex mach Platz", "Rex mach Handstand" |
+| Fallback: `Roboter {command}` | "Roboter sitz" (always works, no name needed) |
+| Fallback: `Hund {command}` | "Hund sitz" (always works, no name needed) |
 
-`{name}` is the robot name you chose during setup (e.g. "Robo", "Rex", "Buddy").
+### Available voice commands
 
-Commands are automatically chained: after a trick (sit, dance, etc.), the robot auto-stands before the next command. After stand lock, it auto-switches to normal mode.
+| Category | German | English |
+| --- | --- | --- |
+| **Tricks** | sitz, steh auf, hallo, gib Pfote, strecken, herz, tanz, spring | sit, stand up, hello, shake hands, stretch, heart, dance, jump |
+| **Directions** | vorwärts, rückwärts, links, rechts, dreh links, dreh rechts | forward, backward, left, right, turn left, turn right |
+| **Stop** | Stop, Stopp, Halt, Notaus | stop, halt, emergency stop |
+| **Safety** | Befehle an/aus, Bewegung an/aus | commands on/off, movement on/off |
+
+### Smart command chaining
+
+The integration automatically handles mode transitions between commands:
+
+1. **After a trick** (sit, dance, handstand, etc.) — the robot needs to stand up first before executing the next command. The integration sends `stand_lock` (L2+A) automatically and waits 2 seconds.
+2. **After standing up** (stand_lock) — the robot is in locked stand mode and can't move. The integration sends `normal mode` (L1+Start) automatically before the next movement or trick.
+
+This means you can say "Rex sitz" → wait → "Rex vorwärts" and the robot will automatically: stand up → switch to normal mode → walk forward. No manual mode switching needed.
+
+### Changing the robot name
+
+Go to **Settings → Devices & Services → Unitree Go2 → Configure** to change the name. The voice sentences are regenerated automatically. Default name is "Go2".
+
+## SLAM Mapping & Navigation
+
+The Go2 Pro/EDU has a built-in SLAM system (Simultaneous Localization and Mapping) that can create floor plans of your home and navigate autonomously.
+
+### Mapping
+
+1. Call the service `unitree_go2.mapping_start` (or use an automation/button)
+2. Walk the robot through the area you want to map — use the direction buttons, voice commands, or the Unitree app
+3. Watch the map build up in real-time in the **LiDAR Map** camera entity
+4. Call `unitree_go2.mapping_stop` when done — the map is saved on the robot
+
+The LiDAR Map entity shows a 2D top-down view during mapping:
+- **Gray dots** — walls and obstacles detected by the LiDAR
+- **Green circle** — current robot position
+- **Green line** — robot heading direction
+
+The map accumulates over time as the robot moves. Performance is optimized with automatic downsampling (max 50,000 points).
+
+### Navigation
+
+After mapping, the robot can navigate autonomously:
+
+1. Call `unitree_go2.navigation_start` to start autonomous navigation
+2. Call `unitree_go2.navigation_stop` to stop
+
+### SLAM Sensors
+
+During mapping or navigation, additional sensors are available:
+
+| Sensor | Description |
+| --- | --- |
+| SLAM Status | Current state: `idle`, `mapping`, or `localization` |
+| SLAM X / SLAM Y | Robot position in the SLAM coordinate frame (meters) |
+| SLAM Yaw | Robot heading angle (radians) |
 
 ## Safety System
 
@@ -236,6 +293,18 @@ Without any switch enabled, only read-only sensors, LED brightness, volume, and 
 **Camera not showing**
 - The camera requires the `av` (PyAV) Python package
 - Some HA installations may not have it pre-installed
+
+**Voice commands not recognized**
+- Make sure HA Assist is set up with a speech-to-text engine
+- Check that the robot name matches what you're saying (Settings → Devices & Services → Configure)
+- Try the fallback phrases: "Roboter sitz" or "Hund sitz" instead of using the custom name
+- Voice commands require the Commands or Movement switch to be enabled (say "{name} Befehle an" first)
+
+**SLAM map not showing**
+- SLAM mapping requires a Go2 Pro or EDU (Air has no LiDAR)
+- Make sure mapping is started via `unitree_go2.mapping_start`
+- The map appears in the **LiDAR Map** camera entity, not the regular camera
+- Move the robot slowly for best mapping results
 
 ## Privacy & Security
 
