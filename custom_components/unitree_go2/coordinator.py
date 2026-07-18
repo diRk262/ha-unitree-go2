@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import logging
+import math
 from datetime import timedelta
 
 import numpy as np
@@ -28,6 +29,7 @@ from .const import (
     DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES,
     STATIONARY_COMMANDS, STATIONARY_CONTROLLER_COMMANDS,
     MOVEMENT_CONTROLLER_COMMANDS, DOUBLE_CLICK_COMMANDS, BUTTON_START,
+    TRICK_COMMANDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +74,17 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self.move_speed = None
         self.move_duration = None
         self._move_api_enabled = False
+        self._last_was_trick = False
+        self._last_was_stand_lock = False
+        self._slam_status = "idle"
+        self._slam_map_image: bytes | None = None
+        self._slam_combined: np.ndarray | None = None
+        self._slam_frame_count = 0
+        self._slam_robot_x = 0.0
+        self._slam_robot_y = 0.0
+        self._slam_robot_yaw = 0.0
+        self._slam_nav_status = ""
+        self._slam_log_lines: list[str] = []
 
     @staticmethod
     def _empty_data() -> dict:
@@ -108,6 +121,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "volume": 0,
             "obstacle_avoidance": "unknown",
             "online": False,
+            "slam_status": "idle",
+            "slam_nav_status": "",
+            "slam_x": 0.0,
+            "slam_y": 0.0,
+            "slam_yaw": 0.0,
         }
 
     # ── Connection ────────────────────────────────────────────────────
@@ -137,6 +155,19 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._conn.datachannel.pub_sub.subscribe(
             RTC_TOPIC["ULIDAR_ARRAY"], self._on_lidar_voxel
         )
+        self._conn.datachannel.pub_sub.subscribe(
+            RTC_TOPIC["LIDAR_MAPPING_SERVER_LOG"], self._on_slam_log
+        )
+        self._conn.datachannel.pub_sub.subscribe(
+            RTC_TOPIC["LIDAR_MAPPING_ODOM"], self._on_slam_odom
+        )
+        self._conn.datachannel.pub_sub.subscribe(
+            RTC_TOPIC["LIDAR_LOCALIZATION_ODOM"], self._on_slam_odom
+        )
+        self._conn.datachannel.pub_sub.subscribe(
+            RTC_TOPIC["LIDAR_MAPPING_CLOUD_POINT"], self._on_slam_cloud
+        )
+        # Localization cloud has different format — skip for now
 
         await self._conn.datachannel.disableTrafficSaving(True)
 
@@ -154,6 +185,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 )
                 self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["ULIDAR_STATE"])
                 self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["ULIDAR_ARRAY"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["LIDAR_MAPPING_SERVER_LOG"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["LIDAR_MAPPING_ODOM"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["LIDAR_LOCALIZATION_ODOM"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["LIDAR_MAPPING_CLOUD_POINT"])
+                self._conn.datachannel.pub_sub.unsubscribe(RTC_TOPIC["LIDAR_LOCALIZATION_CLOUD_POINT"])
             except Exception:
                 pass
             self._connected = False
@@ -504,9 +540,39 @@ class Go2DataCoordinator(DataUpdateCoordinator):
                 "Movement switch is OFF. Enable it first."
             )
 
+    async def async_led_flash(self) -> None:
+        if not self._conn or not self._connected:
+            return
+        current = self._sensor_data.get("brightness", 0)
+        await self._safe_request(
+            RTC_TOPIC["VUI"],
+            {"api_id": 1005, "parameter": {"brightness": 10}},
+        )
+        await asyncio.sleep(0.3)
+        await self._safe_request(
+            RTC_TOPIC["VUI"],
+            {"api_id": 1005, "parameter": {"brightness": current}},
+        )
+
+    async def async_auto_stand_if_needed(self) -> None:
+        if self._last_was_trick:
+            _LOGGER.info("Auto-stand: sending stand_lock (L2+A) before next command")
+            await self.async_send_button(STATIONARY_CONTROLLER_COMMANDS["stand_lock"])
+            await asyncio.sleep(2.0)
+            self._last_was_trick = False
+            self._last_was_stand_lock = True
+        elif self._last_was_stand_lock:
+            _LOGGER.info("Auto-normal: sending normal mode (L1+Start) after stand_lock")
+            await self.async_send_button(MOVEMENT_CONTROLLER_COMMANDS["normal"])
+            await asyncio.sleep(1.0)
+            self._last_was_stand_lock = False
+
     async def async_sport_command(self, command: str, parameter: dict | None = None) -> None:
         if not self._conn or not self._connected:
             raise HomeAssistantError("Robot is not connected")
+
+        if command != "stand_lock":
+            await self.async_auto_stand_if_needed()
 
         if command in STATIONARY_COMMANDS:
             self._check_stationary_allowed()
@@ -546,6 +612,10 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         else:
             raise HomeAssistantError(f"Unknown command: {command}")
 
+        self._last_was_trick = command in TRICK_COMMANDS
+        if command == "stand_lock":
+            self._last_was_stand_lock = True
+
     async def async_move(self, x: float, y: float, yaw: float) -> None:
         if not self._conn or not self._connected:
             raise HomeAssistantError("Robot is not connected")
@@ -573,6 +643,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             self.movement_switch.reset_timeout()
 
     async def async_move_direction(self, x: float, y: float, yaw: float) -> None:
+        await self.async_auto_stand_if_needed()
         speed = 0.3
         if self.move_speed is not None:
             speed = self.move_speed.native_value
@@ -643,6 +714,237 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._conn.datachannel.pub_sub.publish_without_callback(
             RTC_TOPIC["WIRELESS_CONTROLLER"], wc_zero,
         )
+
+    # ── SLAM / Mapping ───────────────────────────────────────────────
+
+    def _slam_cmd(self, command: str) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        _LOGGER.info("SLAM command: %s", command)
+        self._conn.datachannel.pub_sub.publish_without_callback(
+            RTC_TOPIC["LIDAR_MAPPING_CMD"], command,
+        )
+
+    def _on_slam_log(self, msg: dict) -> None:
+        try:
+            data = msg.get("data", "")
+            if isinstance(data, dict):
+                data = data.get("data", "")
+            if not isinstance(data, str):
+                data = str(data)
+            _LOGGER.info("SLAM log: %s", data)
+            self._slam_log_lines.append(data)
+            if len(self._slam_log_lines) > 50:
+                self._slam_log_lines = self._slam_log_lines[-50:]
+
+            if "mapping/start/success" in data:
+                self._slam_status = "mapping"
+            elif "mapping/stop/success" in data:
+                self._slam_status = "idle"
+            elif "localization/get_status/status/1" in data:
+                self._slam_status = "localized"
+            elif "localization/get_status/status/0" in data:
+                self._slam_status = "localizing"
+            elif "initialization succeed" in data:
+                self._slam_status = "localized"
+            elif "initialization failed" in data:
+                self._slam_status = "localization_failed"
+            elif "navigation/state_transition/REACHED" in data:
+                self._slam_nav_status = "reached"
+            elif "navigation/state_transition/" in data:
+                status = data.split("navigation/state_transition/")[-1].strip().lower()
+                self._slam_nav_status = status
+
+            self._sensor_data["slam_status"] = self._slam_status
+            self._sensor_data["slam_nav_status"] = self._slam_nav_status
+        except Exception as exc:
+            _LOGGER.debug("SLAM log parse error: %s", exc)
+
+    def _on_slam_odom(self, msg: dict) -> None:
+        try:
+            data = msg.get("data", {})
+            if isinstance(data, str):
+                data = json.loads(data)
+            pose = data.get("pose", {}).get("pose", {})
+            pos = pose.get("position", {})
+            orient = pose.get("orientation", {})
+            self._slam_robot_x = round(pos.get("x", 0.0), 3)
+            self._slam_robot_y = round(pos.get("y", 0.0), 3)
+            qw = orient.get("w", 1.0)
+            qx = orient.get("x", 0.0)
+            qy = orient.get("y", 0.0)
+            qz = orient.get("z", 0.0)
+            self._slam_robot_yaw = round(
+                math.atan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz)), 3
+            )
+            self._sensor_data["slam_x"] = self._slam_robot_x
+            self._sensor_data["slam_y"] = self._slam_robot_y
+            self._sensor_data["slam_yaw"] = self._slam_robot_yaw
+        except Exception as exc:
+            _LOGGER.debug("SLAM odom parse error: %s", exc)
+
+    def _on_slam_cloud(self, msg: dict) -> None:
+        try:
+            data = msg.get("data", {})
+            binary = data.get("data")
+            if not isinstance(binary, (bytes, bytearray)) or len(binary) < 6:
+                return
+
+            xmin = data.get("xmin", 0.0)
+            xmax = data.get("xmax", 1.0)
+            ymin = data.get("ymin", 0.0)
+            ymax = data.get("ymax", 1.0)
+
+            arr = np.frombuffer(bytes(binary), dtype=np.uint16)
+            n_points = len(arr) // 3
+            if n_points == 0:
+                return
+            arr = arr[:n_points * 3].reshape(n_points, 3)
+            x = arr[:, 0].astype(np.float64) / 1000.0 + xmin
+            y = arr[:, 1].astype(np.float64) / 1000.0 + ymin
+
+            points = np.column_stack([x, y])
+            if self._slam_combined is None:
+                self._slam_combined = points
+            else:
+                self._slam_combined = np.vstack([self._slam_combined, points])
+                if len(self._slam_combined) > 50000:
+                    idx = np.random.choice(len(self._slam_combined), 40000, replace=False)
+                    self._slam_combined = self._slam_combined[idx]
+            self._slam_frame_count += 1
+            if self._slam_frame_count % 2 == 0:
+                self._render_slam_map(self._slam_combined)
+        except Exception as exc:
+            _LOGGER.warning("SLAM cloud parse error: %s", exc)
+
+    SLAM_MAP_SIZE = 800
+    SLAM_MAP_MARGIN = 40
+
+    def _render_slam_map(self, points: np.ndarray) -> None:
+        if not _HAS_PILLOW:
+            return
+        try:
+            x = points[:, 0]
+            y = points[:, 1]
+
+            rx_w = self._slam_robot_x
+            ry_w = self._slam_robot_y
+
+            x_min = min(float(x.min()), rx_w) - 1.0
+            x_max = max(float(x.max()), rx_w) + 1.0
+            y_min = min(float(y.min()), ry_w) - 1.0
+            y_max = max(float(y.max()), ry_w) + 1.0
+
+            x_range = max(x_max - x_min, 1.0)
+            y_range = max(y_max - y_min, 1.0)
+
+            sz = self.SLAM_MAP_SIZE
+            mg = self.SLAM_MAP_MARGIN
+            usable = sz - 2 * mg
+            sc = min(usable / x_range, usable / y_range)
+
+            ox = mg + (usable - x_range * sc) / 2
+            oy = mg + (usable - y_range * sc) / 2
+
+            px_arr = ((x - x_min) * sc + ox).astype(np.int32)
+            py_arr = ((y_max - y) * sc + oy).astype(np.int32)
+
+            img = np.zeros((sz, sz, 3), dtype=np.uint8)
+            img[:] = 15
+
+            mask = (px_arr >= 0) & (px_arr < sz) & (py_arr >= 0) & (py_arr < sz)
+            px_v = px_arr[mask]
+            py_v = py_arr[mask]
+            img[py_v, px_v] = [180, 180, 180]
+
+            rx = int((rx_w - x_min) * sc + ox)
+            ry = int((y_max - ry_w) * sc + oy)
+
+            ms = 8
+            for dy in range(-ms, ms + 1):
+                for dx in range(-ms, ms + 1):
+                    if dx * dx + dy * dy <= ms * ms:
+                        py_r, px_r = ry + dy, rx + dx
+                        if 0 <= py_r < sz and 0 <= px_r < sz:
+                            img[py_r, px_r] = [0, 255, 0]
+
+            arrow_len = 22
+            ax = int(rx + math.cos(self._slam_robot_yaw) * arrow_len)
+            ay = int(ry - math.sin(self._slam_robot_yaw) * arrow_len)
+            steps = max(abs(ax - rx), abs(ay - ry), 1)
+            for i in range(steps):
+                ix = int(rx + (ax - rx) * i / steps)
+                iy = int(ry + (ay - ry) * i / steps)
+                if 0 <= ix < sz and 0 <= iy < sz:
+                    for d in range(-1, 2):
+                        for e in range(-1, 2):
+                            if 0 <= iy+d < sz and 0 <= ix+e < sz:
+                                img[iy+d, ix+e] = [0, 255, 80]
+
+            pil_img = Image.fromarray(img)
+            buf = io.BytesIO()
+            pil_img.save(buf, format="PNG")
+            self._slam_map_image = buf.getvalue()
+        except Exception as exc:
+            _LOGGER.warning("SLAM map render error: %s", exc)
+
+    @property
+    def last_slam_map_frame(self) -> bytes | None:
+        return self._slam_map_image
+
+    async def async_mapping_start(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_combined = None
+        self._slam_frame_count = 0
+        self._slam_map_image = None
+        self._slam_cmd("mapping/start")
+        self._slam_status = "mapping"
+        self._sensor_data["slam_status"] = self._slam_status
+
+    async def async_mapping_stop(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_cmd("mapping/stop")
+        self._slam_status = "saving"
+        self._sensor_data["slam_status"] = self._slam_status
+
+    async def async_localization_start(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_cmd("localization/start")
+        self._slam_status = "localizing"
+        self._sensor_data["slam_status"] = self._slam_status
+
+    async def async_localization_stop(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_cmd("localization/stop")
+        self._slam_status = "idle"
+        self._sensor_data["slam_status"] = self._slam_status
+
+    async def async_navigation_start(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_cmd("navigation/start")
+
+    async def async_navigation_stop(self) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        self._slam_cmd("navigation/stop")
+
+    async def async_navigate_to(self, x: float, y: float, yaw: float) -> None:
+        if not self._conn or not self._connected:
+            raise HomeAssistantError("Robot is not connected")
+        if self._slam_status != "localized":
+            raise HomeAssistantError(
+                "Robot is not localized. Start localization first."
+            )
+        self._slam_cmd("navigation/start")
+        await asyncio.sleep(0.5)
+        self._slam_cmd(f"navigation/set_goal_pose/{x:.3f}/{y:.3f}/{yaw:.3f}")
+        self._slam_nav_status = "navigating"
+        self._sensor_data["slam_nav_status"] = self._slam_nav_status
 
     # ── Coordinator update ────────────────────────────────────────────
 

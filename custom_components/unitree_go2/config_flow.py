@@ -18,15 +18,46 @@ from .const import (
     CONF_SERIAL,
     CONF_EMAIL,
     CONF_PASSWORD,
+    CONF_ROBOT_NAME,
+    DEFAULT_ROBOT_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class UnitreeGo2OptionsFlow(config_entries.OptionsFlow):
+    """Handle options for Unitree Go2."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict | None = None
+    ) -> FlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        current_name = self._config_entry.options.get(
+            CONF_ROBOT_NAME, DEFAULT_ROBOT_NAME
+        )
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {vol.Optional(CONF_ROBOT_NAME, default=current_name): str}
+            ),
+        )
 
 
 class UnitreeGo2ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Unitree Go2."""
 
     VERSION = 1
+
+    @staticmethod
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> UnitreeGo2OptionsFlow:
+        return UnitreeGo2OptionsFlow(config_entry)
 
     def __init__(self) -> None:
         self._devices: list = []

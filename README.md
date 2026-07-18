@@ -17,9 +17,13 @@ Tested on **Go2 Pro with firmware 1.1.15**.
 - **Directional movement** — 6 direction buttons with configurable speed and duration
 - **Command dropdown** — Select and execute commands, organized like the physical remote
 - **Move service** — Obstacle avoidance movement with x/y/yaw speed control
-- **17 sensors** — Battery, temperature, position, speed, IMU, LiDAR status
+- **Voice control** — Custom sentences for HA Assist (DE/EN): tricks, directions, start/stop, enable/disable
+- **SLAM Mapping** — Start/stop mapping, live map visualization in the LiDAR camera entity
+- **SLAM Navigation** — Start/stop navigation to saved map positions
+- **Smart command chaining** — Auto stand-up after tricks, auto normal-mode after stand lock
+- **17+ sensors** — Battery, temperature, position, speed, IMU, LiDAR status, SLAM position
 - **Camera** — Live stream from the Go2's front camera
-- **LiDAR Map** — Real-time 2D top-down point cloud visualization
+- **LiDAR Map** — Real-time 2D top-down point cloud / SLAM map visualization
 - **Auto-reconnect** — Automatically reconnects when the robot restarts
 - **Localized** — English and German translations
 
@@ -110,7 +114,15 @@ Your credentials are only used once during setup to fetch the device encryption 
 | Entity | Description |
 | --- | --- |
 | Camera | Live front camera stream |
-| LiDAR Map | Real-time 2D top-down point cloud |
+| LiDAR Map | Real-time 2D top-down point cloud / SLAM map |
+
+### SLAM Sensors
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| SLAM Status | Sensor | Current SLAM state (idle/mapping/localization) |
+| SLAM Position X/Y | Sensor | Robot position from SLAM odometry (m) |
+| SLAM Yaw | Sensor | Robot heading from SLAM odometry (°) |
 
 ## Available Commands
 
@@ -166,6 +178,24 @@ All commands are also available as HA services for use in automations:
 - `unitree_go2.stand_lock`, `unitree_go2.sit`, `unitree_go2.greet`, etc.
 - `unitree_go2.move` — Move with obstacle avoidance (x/y/yaw: -1.0 to 1.0)
 - `unitree_go2.move_forward`, `move_backward`, `move_left`, `move_right`, `turn_left`, `turn_right` — Directional impulse movement
+- `unitree_go2.mapping_start`, `mapping_stop` — Start/stop SLAM mapping
+- `unitree_go2.navigation_start`, `navigation_stop` — Start/stop SLAM navigation
+
+## Voice Control
+
+Voice commands work with HA Assist (German and English):
+
+| Voice Command | Action |
+| --- | --- |
+| "Robo sitz" / "Robo sit" | Sit down |
+| "Robo steh auf" / "Robo stand up" | Stand up |
+| "Robo vorwärts" / "Robo forward" | Move forward |
+| "Robo stopp" / "Robo stop" | Emergency stop |
+| "Robo tanz" / "Robo dance" | Dance |
+| "Robo Befehle an/aus" | Enable/disable commands |
+| "Robo Bewegung an/aus" | Enable/disable movement |
+
+Commands are automatically chained: after a trick (sit, dance, etc.), the robot auto-stands before the next command. After stand lock, it auto-switches to normal mode.
 
 ## Safety System
 

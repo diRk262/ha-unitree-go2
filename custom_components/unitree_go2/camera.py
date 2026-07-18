@@ -74,4 +74,4 @@ class Go2LidarCamera(Camera):
     async def async_camera_image(
         self, width: int | None = None, height: int | None = None
     ) -> bytes | None:
-        return self._coordinator.last_lidar_frame
+        return self._coordinator.last_slam_map_frame or self._coordinator.last_lidar_frame

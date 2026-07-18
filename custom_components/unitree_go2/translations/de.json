@@ -33,6 +33,17 @@
       "already_configured": "Dieser Roboter ist bereits konfiguriert."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Roboter Einstellungen",
+        "description": "Gib deinem Roboter einen Namen. Dieser wird für Sprachbefehle verwendet (z.B. 'Rex sitz' statt 'Go2 sitz').",
+        "data": {
+          "robot_name": "Roboter Name"
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "battery_percent": { "name": "Batterie" },
@@ -52,7 +63,11 @@
       "lidar_dirty": { "name": "LiDAR Verschmutzung" },
       "lidar_error": { "name": "LiDAR Fehler" },
       "imu_roll": { "name": "IMU Roll" },
-      "imu_pitch": { "name": "IMU Pitch" }
+      "imu_pitch": { "name": "IMU Pitch" },
+      "slam_status": { "name": "SLAM Status" },
+      "slam_nav_status": { "name": "Navigationsstatus" },
+      "slam_x": { "name": "SLAM Position X" },
+      "slam_y": { "name": "SLAM Position Y" }
     },
     "binary_sensor": {
       "online": { "name": "Online" }
@@ -71,7 +86,11 @@
       "move_left": { "name": "Links" },
       "move_right": { "name": "Rechts" },
       "turn_left": { "name": "Drehen Links" },
-      "turn_right": { "name": "Drehen Rechts" }
+      "turn_right": { "name": "Drehen Rechts" },
+      "mapping_start": { "name": "Mapping starten" },
+      "mapping_stop": { "name": "Mapping stoppen" },
+      "localization_start": { "name": "Lokalisierung starten" },
+      "localization_stop": { "name": "Lokalisierung stoppen" }
     },
     "select": {
       "command_select": { "name": "Befehl" }

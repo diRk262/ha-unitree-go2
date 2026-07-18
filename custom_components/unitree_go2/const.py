@@ -5,6 +5,8 @@ CONF_AES_KEY = "aes_key"
 CONF_SERIAL = "serial_number"
 CONF_EMAIL = "email"
 CONF_PASSWORD = "password"
+CONF_ROBOT_NAME = "robot_name"
+DEFAULT_ROBOT_NAME = "Go2"
 
 SCAN_INTERVAL_SECONDS = 5
 
@@ -92,6 +94,13 @@ MODE_CODES = {
     2011: "Hand Stand",
     2016: "Cross Step",
     2017: "Erect",
+}
+
+TRICK_COMMANDS = {
+    "sit", "hello", "stretch", "heart", "greet", "pose",
+    "front_jump", "front_pounce", "dance1", "dance2",
+    "handstand", "erect", "cross_step", "bound", "jump_gait",
+    "free_avoid", "endurance", "content",
 }
 
 GAIT_CODES = {

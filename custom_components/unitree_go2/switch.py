@@ -139,6 +139,7 @@ class Go2StationarySwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
         self._is_on = True
         self.reset_timeout()
         self.async_write_ha_state()
+        self.hass.async_create_task(self.coordinator.async_led_flash())
 
     async def async_turn_off(self, **kwargs) -> None:
         self._is_on = False
@@ -146,6 +147,7 @@ class Go2StationarySwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
             self._timeout_cancel()
             self._timeout_cancel = None
         self.async_write_ha_state()
+        self.hass.async_create_task(self.coordinator.async_led_flash())
 
 
 class Go2MovementSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
@@ -189,6 +191,7 @@ class Go2MovementSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
             await self._stationary_switch.async_turn_on()
         self.reset_timeout()
         self.async_write_ha_state()
+        self.hass.async_create_task(self.coordinator.async_led_flash())
 
     async def async_turn_off(self, **kwargs) -> None:
         self._is_on = False
@@ -196,3 +199,4 @@ class Go2MovementSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
             self._timeout_cancel()
             self._timeout_cancel = None
         self.async_write_ha_state()
+        self.hass.async_create_task(self.coordinator.async_led_flash())

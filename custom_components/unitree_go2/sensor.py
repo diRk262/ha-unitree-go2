@@ -36,6 +36,10 @@ SENSOR_DEFINITIONS: list[
     ("lidar_error", None, None, None, "mdi:alert-circle"),
     ("imu_roll", "°", None, SensorStateClass.MEASUREMENT, None),
     ("imu_pitch", "°", None, SensorStateClass.MEASUREMENT, None),
+    ("slam_status", None, None, None, "mdi:map-search"),
+    ("slam_nav_status", None, None, None, "mdi:navigation"),
+    ("slam_x", "m", None, SensorStateClass.MEASUREMENT, "mdi:map-marker"),
+    ("slam_y", "m", None, SensorStateClass.MEASUREMENT, "mdi:map-marker"),
 ]
 
 

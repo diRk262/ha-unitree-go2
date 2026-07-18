@@ -168,3 +168,63 @@ move:
           max: 1.0
           step: 0.1
           mode: slider
+
+mapping_start:
+  name: Start Mapping
+  description: Start SLAM mapping. Walk the robot around to build a map.
+
+mapping_stop:
+  name: Stop Mapping
+  description: Stop SLAM mapping and save the map.
+
+localization_start:
+  name: Start Localization
+  description: Start localization on a previously saved map.
+
+localization_stop:
+  name: Stop Localization
+  description: Stop localization.
+
+navigation_start:
+  name: Start Navigation
+  description: Start the navigation system.
+
+navigation_stop:
+  name: Stop Navigation
+  description: Stop the navigation system.
+
+navigate_to:
+  name: Navigate To
+  description: Navigate the robot to a specific position on the map. Requires active localization.
+  fields:
+    x:
+      name: X Position
+      description: "Target X coordinate on the map (meters)"
+      required: true
+      selector:
+        number:
+          min: -50.0
+          max: 50.0
+          step: 0.1
+          mode: box
+    y:
+      name: Y Position
+      description: "Target Y coordinate on the map (meters)"
+      required: true
+      selector:
+        number:
+          min: -50.0
+          max: 50.0
+          step: 0.1
+          mode: box
+    yaw:
+      name: Orientation
+      description: "Target orientation in radians (-3.14 to 3.14)"
+      required: false
+      default: 0.0
+      selector:
+        number:
+          min: -3.14
+          max: 3.14
+          step: 0.01
+          mode: box

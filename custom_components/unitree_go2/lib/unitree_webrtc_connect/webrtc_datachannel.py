@@ -157,9 +157,12 @@ class WebRTCDataChannel:
 
         decoded_json = json.loads(json_data.decode('utf-8'))
 
-        decoded_data = self.decoder.decode(binary_data, decoded_json['data'])
-
-        decoded_json['data']['data'] = decoded_data
+        topic = decoded_json.get("topic", "")
+        if "uslam" in topic:
+            decoded_json['data']['data'] = bytes(binary_data)
+        else:
+            decoded_data = self.decoder.decode(binary_data, decoded_json['data'])
+            decoded_json['data']['data'] = decoded_data
         return decoded_json
 
     

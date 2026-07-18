@@ -5,6 +5,7 @@ import logging
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -34,6 +35,10 @@ async def async_setup_entry(
     entities = [
         Go2EmergencyStopButton(coordinator, entry),
         Go2ExecuteCommandButton(coordinator, entry),
+        Go2MappingStartButton(coordinator, entry),
+        Go2MappingStopButton(coordinator, entry),
+        Go2LocalizationStartButton(coordinator, entry),
+        Go2LocalizationStopButton(coordinator, entry),
     ]
     for key, icon, x, y, yaw in DIRECTION_BUTTONS:
         entities.append(Go2DirectionButton(coordinator, entry, key, icon, x, y, yaw))
@@ -108,3 +113,75 @@ class Go2DirectionButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_move_direction(self._x, self._y, self._yaw)
+
+
+class Go2MappingStartButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "mapping_start"
+    _attr_icon = "mdi:map-plus"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"go2_{entry.entry_id}_mapping_start"
+
+    @property
+    def device_info(self):
+        return _device_info(self.coordinator)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_mapping_start()
+
+
+class Go2MappingStopButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "mapping_stop"
+    _attr_icon = "mdi:map-check"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"go2_{entry.entry_id}_mapping_stop"
+
+    @property
+    def device_info(self):
+        return _device_info(self.coordinator)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_mapping_stop()
+
+
+class Go2LocalizationStartButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "localization_start"
+    _attr_icon = "mdi:crosshairs-gps"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"go2_{entry.entry_id}_localization_start"
+
+    @property
+    def device_info(self):
+        return _device_info(self.coordinator)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_localization_start()
+
+
+class Go2LocalizationStopButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "localization_stop"
+    _attr_icon = "mdi:crosshairs-off"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"go2_{entry.entry_id}_localization_stop"
+
+    @property
+    def device_info(self):
+        return _device_info(self.coordinator)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_localization_stop()
