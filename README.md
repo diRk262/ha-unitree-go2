@@ -33,7 +33,7 @@ Tested on **Go2 Pro with firmware 1.1.15**.
 | --- | --- |
 | Go2 Pro | Tested (firmware 1.1.15) |
 | Go2 EDU | Should work (untested) |
-| Go2 Air | Limited (no SDK, app-only control) |
+| Go2 Air | Should work (untested) |
 
 ## Installation
 
@@ -301,7 +301,7 @@ Without any switch enabled, only read-only sensors, LED brightness, volume, and 
 - Voice commands require the Commands or Movement switch to be enabled (say "{name} Befehle an" first)
 
 **SLAM map not showing**
-- SLAM mapping requires WebRTC access (Go2 Pro/EDU tested, Air may be limited due to SDK restrictions)
+- SLAM mapping requires a Go2 with LiDAR (all models have LiDAR, but only tested on Pro)
 - Make sure mapping is started via `unitree_go2.mapping_start`
 - The map appears in the **LiDAR Map** camera entity, not the regular camera
 - Move the robot slowly for best mapping results
