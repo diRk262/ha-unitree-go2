@@ -40,6 +40,10 @@ SENSOR_DEFINITIONS: list[
     ("slam_nav_status", None, None, None, "mdi:navigation"),
     ("slam_x", "m", None, SensorStateClass.MEASUREMENT, "mdi:map-marker"),
     ("slam_y", "m", None, SensorStateClass.MEASUREMENT, "mdi:map-marker"),
+    ("vision_detected_objects", None, None, None, "mdi:eye"),
+    ("vision_last_description", None, None, None, "mdi:image-text"),
+    ("vision_last_answer", None, None, None, "mdi:chat-question"),
+    ("vision_watch_status", None, None, None, "mdi:cctv"),
 ]
 
 
@@ -92,3 +96,11 @@ class Go2Sensor(CoordinatorEntity[Go2DataCoordinator], SensorEntity):
         if self.coordinator.data is None:
             return None
         return self.coordinator.data.get(self._key)
+
+    @property
+    def extra_state_attributes(self):
+        if self._key == "vision_detected_objects" and self.coordinator.data:
+            details = self.coordinator.data.get("vision_detected_details")
+            if details:
+                return {"details": details}
+        return None

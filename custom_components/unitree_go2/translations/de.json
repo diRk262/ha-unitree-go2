@@ -39,7 +39,8 @@
         "title": "Roboter Einstellungen",
         "description": "Gib deinem Roboter einen Namen. Dieser wird für Sprachbefehle verwendet (z.B. 'Rex sitz' statt 'Go2 sitz').",
         "data": {
-          "robot_name": "Roboter Name"
+          "robot_name": "Roboter Name",
+          "vision_url": "Vision Server URL (optional)"
         }
       }
     }
@@ -67,7 +68,11 @@
       "slam_status": { "name": "SLAM Status" },
       "slam_nav_status": { "name": "Navigationsstatus" },
       "slam_x": { "name": "SLAM Position X" },
-      "slam_y": { "name": "SLAM Position Y" }
+      "slam_y": { "name": "SLAM Position Y" },
+      "vision_detected_objects": { "name": "Vision Erkannte Objekte" },
+      "vision_last_description": { "name": "Vision Letzte Beschreibung" },
+      "vision_last_answer": { "name": "Vision Letzte Antwort" },
+      "vision_watch_status": { "name": "Vision Wachmodus" }
     },
     "binary_sensor": {
       "online": { "name": "Online" }
@@ -76,7 +81,8 @@
       "obstacle_avoidance": { "name": "Hinderniserkennung" },
       "lidar": { "name": "LiDAR" },
       "commands_enabled": { "name": "Befehle" },
-      "movement_enabled": { "name": "Bewegung" }
+      "movement_enabled": { "name": "Bewegung" },
+      "vision_watch": { "name": "Vision Wachmodus" }
     },
     "button": {
       "emergency_stop": { "name": "Notaus" },

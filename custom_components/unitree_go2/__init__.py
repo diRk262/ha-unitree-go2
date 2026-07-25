@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 
 from .const import (
     DOMAIN, CONF_ROBOT_IP, CONF_AES_KEY, CONF_SERIAL,
-    CONF_ROBOT_NAME, DEFAULT_ROBOT_NAME,
+    CONF_ROBOT_NAME, CONF_VISION_URL, DEFAULT_ROBOT_NAME,
     STATIONARY_COMMANDS, STATIONARY_CONTROLLER_COMMANDS,
     MOVEMENT_CONTROLLER_COMMANDS, DOUBLE_CLICK_COMMANDS,
 )
@@ -100,6 +100,25 @@ SLAM_SERVICES = [
     "navigate_to",
 ]
 
+VISION_DETECT_SCHEMA = vol.Schema({
+    vol.Optional("confidence", default=0.5): vol.Coerce(float),
+    vol.Optional("labels", default=""): str,
+})
+
+VISION_ASK_SCHEMA = vol.Schema({
+    vol.Required("question"): str,
+})
+
+VISION_WATCH_SCHEMA = vol.Schema({
+    vol.Optional("interval", default=2.0): vol.Coerce(float),
+    vol.Optional("labels", default="person,cat,dog"): str,
+})
+
+VISION_SERVICES = [
+    "vision_detect", "vision_describe", "vision_ask",
+    "vision_watch_start", "vision_watch_stop",
+]
+
 
 def _register_slam_services(hass: HomeAssistant) -> None:
     async def handle_mapping_start(call: ServiceCall) -> None:
@@ -136,16 +155,52 @@ def _register_slam_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, "navigate_to", handle_navigate_to, schema=NAVIGATE_SCHEMA)
 
 
+def _register_vision_services(hass: HomeAssistant) -> None:
+    async def handle_vision_detect(call: ServiceCall) -> None:
+        coordinator = _get_coordinator(hass)
+        labels = call.data.get("labels", "")
+        label_list = [l.strip() for l in labels.split(",") if l.strip()] if labels else None
+        await coordinator.async_vision_detect(
+            confidence=call.data.get("confidence", 0.5),
+            labels=label_list,
+        )
+
+    async def handle_vision_describe(call: ServiceCall) -> None:
+        await _get_coordinator(hass).async_vision_describe()
+
+    async def handle_vision_ask(call: ServiceCall) -> None:
+        await _get_coordinator(hass).async_vision_ask(call.data["question"])
+
+    async def handle_vision_watch_start(call: ServiceCall) -> None:
+        labels = call.data.get("labels", "person,cat,dog")
+        label_list = [l.strip() for l in labels.split(",") if l.strip()]
+        await _get_coordinator(hass).async_vision_watch_start(
+            interval=call.data.get("interval", 2.0),
+            labels=label_list,
+        )
+
+    async def handle_vision_watch_stop(call: ServiceCall) -> None:
+        await _get_coordinator(hass).async_vision_watch_stop()
+
+    hass.services.async_register(DOMAIN, "vision_detect", handle_vision_detect, schema=VISION_DETECT_SCHEMA)
+    hass.services.async_register(DOMAIN, "vision_describe", handle_vision_describe)
+    hass.services.async_register(DOMAIN, "vision_ask", handle_vision_ask, schema=VISION_ASK_SCHEMA)
+    hass.services.async_register(DOMAIN, "vision_watch_start", handle_vision_watch_start, schema=VISION_WATCH_SCHEMA)
+    hass.services.async_register(DOMAIN, "vision_watch_stop", handle_vision_watch_stop)
+
+
 def _all_service_names() -> list[str]:
-    return _all_command_names() + ["move"] + DIRECTION_SERVICES + SLAM_SERVICES
+    return _all_command_names() + ["move"] + DIRECTION_SERVICES + SLAM_SERVICES + VISION_SERVICES
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    vision_url = entry.options.get(CONF_VISION_URL, "")
     coordinator = Go2DataCoordinator(
         hass,
         robot_ip=entry.data[CONF_ROBOT_IP],
         aes_key=entry.data[CONF_AES_KEY],
         serial=entry.data.get(CONF_SERIAL, ""),
+        vision_url=vision_url,
     )
     await coordinator.async_config_entry_first_refresh()
 
@@ -157,6 +212,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not hass.services.has_service(DOMAIN, "stand_lock"):
         _register_services(hass)
         _register_slam_services(hass)
+        _register_vision_services(hass)
         await async_setup_intents(hass)
 
     _install_custom_sentences(hass, robot_name)
@@ -171,7 +227,11 @@ async def _async_options_updated(
 ) -> None:
     robot_name = entry.options.get(CONF_ROBOT_NAME, DEFAULT_ROBOT_NAME)
     _install_custom_sentences(hass, robot_name)
-    _LOGGER.info("Robot name updated to '%s', sentences regenerated", robot_name)
+
+    coordinator: Go2DataCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator.vision_url = entry.options.get(CONF_VISION_URL, "")
+
+    _LOGGER.info("Options updated: name='%s', vision_url='%s'", robot_name, coordinator.vision_url)
 
 
 def _install_custom_sentences(hass: HomeAssistant, robot_name: str) -> None:

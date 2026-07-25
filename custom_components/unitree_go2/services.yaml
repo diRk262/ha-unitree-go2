@@ -228,3 +228,68 @@ navigate_to:
           max: 3.14
           step: 0.01
           mode: box
+
+vision_detect:
+  name: Vision Detect
+  description: Detect objects in the current camera image using the vision server.
+  fields:
+    confidence:
+      name: Confidence
+      description: "Minimum confidence threshold (0.0 to 1.0)"
+      required: false
+      default: 0.5
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.05
+          mode: slider
+    labels:
+      name: Labels
+      description: "Comma-separated list of labels to filter (e.g. person,cat,dog). Empty = all."
+      required: false
+      default: ""
+      selector:
+        text:
+
+vision_describe:
+  name: Vision Describe
+  description: Get a description of what the robot currently sees.
+
+vision_ask:
+  name: Vision Ask
+  description: Ask a question about what the robot currently sees.
+  fields:
+    question:
+      name: Question
+      description: "The question to ask about the current camera image"
+      required: true
+      selector:
+        text:
+
+vision_watch_start:
+  name: Vision Watch Start
+  description: Start continuous object detection. Fires events when watched objects appear or disappear.
+  fields:
+    interval:
+      name: Interval
+      description: "Seconds between detection checks"
+      required: false
+      default: 2.0
+      selector:
+        number:
+          min: 1.0
+          max: 30.0
+          step: 0.5
+          mode: slider
+    labels:
+      name: Labels
+      description: "Comma-separated list of labels to watch for"
+      required: false
+      default: "person,cat,dog"
+      selector:
+        text:
+
+vision_watch_stop:
+  name: Vision Watch Stop
+  description: Stop continuous object detection.

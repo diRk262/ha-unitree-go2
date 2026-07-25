@@ -39,7 +39,8 @@
         "title": "Robot Settings",
         "description": "Set a custom name for your robot. This name is used for voice commands (e.g. 'Rex sit' instead of 'Go2 sit').",
         "data": {
-          "robot_name": "Robot Name"
+          "robot_name": "Robot Name",
+          "vision_url": "Vision Server URL (optional)"
         }
       }
     }
@@ -67,7 +68,11 @@
       "slam_status": { "name": "SLAM Status" },
       "slam_nav_status": { "name": "Navigation Status" },
       "slam_x": { "name": "SLAM Position X" },
-      "slam_y": { "name": "SLAM Position Y" }
+      "slam_y": { "name": "SLAM Position Y" },
+      "vision_detected_objects": { "name": "Vision Detected Objects" },
+      "vision_last_description": { "name": "Vision Last Description" },
+      "vision_last_answer": { "name": "Vision Last Answer" },
+      "vision_watch_status": { "name": "Vision Watch Status" }
     },
     "binary_sensor": {
       "online": { "name": "Online" }
@@ -76,7 +81,8 @@
       "obstacle_avoidance": { "name": "Obstacle Avoidance" },
       "lidar": { "name": "LiDAR" },
       "commands_enabled": { "name": "Commands" },
-      "movement_enabled": { "name": "Movement" }
+      "movement_enabled": { "name": "Movement" },
+      "vision_watch": { "name": "Vision Watch" }
     },
     "button": {
       "emergency_stop": { "name": "Emergency Stop" },

@@ -32,6 +32,7 @@ async def async_setup_entry(
         Go2LidarSwitch(coordinator, entry),
         stationary_switch,
         movement_switch,
+        Go2VisionWatchSwitch(coordinator, entry),
     ])
 
 
@@ -200,3 +201,33 @@ class Go2MovementSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
             self._timeout_cancel = None
         self.async_write_ha_state()
         self.hass.async_create_task(self.coordinator.async_led_flash())
+
+
+class Go2VisionWatchSwitch(CoordinatorEntity[Go2DataCoordinator], SwitchEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "vision_watch"
+    _attr_icon = "mdi:cctv"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: Go2DataCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"go2_{entry.entry_id}_vision_watch"
+        self._is_on = False
+
+    @property
+    def device_info(self):
+        return _device_info(self.coordinator)
+
+    @property
+    def is_on(self) -> bool:
+        return self._is_on
+
+    async def async_turn_on(self, **kwargs) -> None:
+        self._is_on = True
+        self.async_write_ha_state()
+        await self.coordinator.async_vision_watch_start()
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._is_on = False
+        self.async_write_ha_state()
+        await self.coordinator.async_vision_watch_stop()

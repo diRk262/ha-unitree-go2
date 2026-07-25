@@ -50,6 +50,7 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         robot_ip: str,
         aes_key: str,
         serial: str = "",
+        vision_url: str = "",
     ) -> None:
         super().__init__(
             hass,
@@ -85,6 +86,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._slam_robot_yaw = 0.0
         self._slam_nav_status = ""
         self._slam_log_lines: list[str] = []
+        self.vision_url = vision_url
+        self._vision_watch_task: asyncio.Task | None = None
+        self._vision_watch_prev: set[str] = set()
 
     @staticmethod
     def _empty_data() -> dict:
@@ -126,6 +130,11 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "slam_x": 0.0,
             "slam_y": 0.0,
             "slam_yaw": 0.0,
+            "vision_detected_objects": "",
+            "vision_detected_details": [],
+            "vision_last_description": "",
+            "vision_last_answer": "",
+            "vision_watch_status": "idle",
         }
 
     # ── Connection ────────────────────────────────────────────────────
@@ -945,6 +954,109 @@ class Go2DataCoordinator(DataUpdateCoordinator):
         self._slam_cmd(f"navigation/set_goal_pose/{x:.3f}/{y:.3f}/{yaw:.3f}")
         self._slam_nav_status = "navigating"
         self._sensor_data["slam_nav_status"] = self._slam_nav_status
+
+    # ── Vision ────────────────────────────────────────────────────────
+
+    def _check_vision_available(self) -> None:
+        if not self.vision_url:
+            raise HomeAssistantError(
+                "Vision server not configured. Set the Vision Server URL in "
+                "Settings → Devices & Services → Unitree Go2 → Configure."
+            )
+
+    async def _vision_request(self, endpoint: str, params: dict | None = None) -> dict:
+        self._check_vision_available()
+        if not self._last_frame:
+            raise HomeAssistantError("No camera frame available")
+
+        import aiohttp
+
+        url = f"{self.vision_url.rstrip('/')}/{endpoint}"
+        data = aiohttp.FormData()
+        data.add_field("image", self._last_frame, filename="frame.jpg", content_type="image/jpeg")
+
+        query = params or {}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data=data, params=query, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        raise HomeAssistantError(f"Vision server error {resp.status}: {text}")
+                    return await resp.json()
+        except aiohttp.ClientError as exc:
+            raise HomeAssistantError(f"Vision server unreachable: {exc}") from exc
+
+    async def async_vision_detect(self, confidence: float = 0.5, labels: list[str] | None = None) -> dict:
+        params = {"confidence": str(confidence)}
+        if labels:
+            params["labels"] = ",".join(labels)
+        result = await self._vision_request("detect", params)
+        objects = result.get("objects", [])
+        from collections import Counter
+        counts = Counter(o["label"] for o in objects)
+        summary = ", ".join(f"{v} {k}" for k, v in counts.items()) if counts else "none"
+        self._sensor_data["vision_detected_objects"] = summary
+        self._sensor_data["vision_detected_details"] = objects
+        self.async_set_updated_data(dict(self._sensor_data))
+        return result
+
+    async def async_vision_describe(self) -> dict:
+        result = await self._vision_request("describe")
+        self._sensor_data["vision_last_description"] = result.get("description", "")
+        self.async_set_updated_data(dict(self._sensor_data))
+        return result
+
+    async def async_vision_ask(self, question: str) -> dict:
+        result = await self._vision_request("ask", {"question": question})
+        self._sensor_data["vision_last_answer"] = result.get("answer", "")
+        self.async_set_updated_data(dict(self._sensor_data))
+        return result
+
+    async def async_vision_watch_start(self, interval: float = 2.0, labels: list[str] | None = None) -> None:
+        self._check_vision_available()
+        if self._vision_watch_task and not self._vision_watch_task.done():
+            self._vision_watch_task.cancel()
+
+        watch_labels = labels or ["person", "cat", "dog"]
+        self._vision_watch_prev = set()
+        self._sensor_data["vision_watch_status"] = "active"
+        self.async_set_updated_data(dict(self._sensor_data))
+
+        async def _watch_loop():
+            consecutive: dict[str, int] = {}
+            try:
+                while True:
+                    try:
+                        result = await self.async_vision_detect(confidence=0.5, labels=watch_labels)
+                        current = {obj["label"] for obj in result.get("objects", [])}
+
+                        for label in current:
+                            consecutive[label] = consecutive.get(label, 0) + 1
+                            if consecutive[label] >= 2 and label not in self._vision_watch_prev:
+                                self.hass.bus.async_fire(f"{DOMAIN}_vision_detected", {"label": label})
+                                _LOGGER.info("Vision watch: %s detected", label)
+
+                        for label in self._vision_watch_prev - current:
+                            consecutive.pop(label, None)
+                            self.hass.bus.async_fire(f"{DOMAIN}_vision_cleared", {"label": label})
+
+                        self._vision_watch_prev = {l for l, c in consecutive.items() if c >= 2}
+                    except HomeAssistantError:
+                        pass
+                    await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._sensor_data["vision_watch_status"] = "idle"
+                self.async_set_updated_data(dict(self._sensor_data))
+
+        self._vision_watch_task = self.hass.loop.create_task(_watch_loop())
+
+    async def async_vision_watch_stop(self) -> None:
+        if self._vision_watch_task and not self._vision_watch_task.done():
+            self._vision_watch_task.cancel()
+        self._sensor_data["vision_watch_status"] = "idle"
+        self.async_set_updated_data(dict(self._sensor_data))
 
     # ── Coordinator update ────────────────────────────────────────────
 

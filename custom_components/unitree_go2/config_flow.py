@@ -19,6 +19,7 @@ from .const import (
     CONF_EMAIL,
     CONF_PASSWORD,
     CONF_ROBOT_NAME,
+    CONF_VISION_URL,
     DEFAULT_ROBOT_NAME,
 )
 
@@ -40,10 +41,14 @@ class UnitreeGo2OptionsFlow(config_entries.OptionsFlow):
         current_name = self._config_entry.options.get(
             CONF_ROBOT_NAME, DEFAULT_ROBOT_NAME
         )
+        current_vision = self._config_entry.options.get(CONF_VISION_URL, "")
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
-                {vol.Optional(CONF_ROBOT_NAME, default=current_name): str}
+                {
+                    vol.Optional(CONF_ROBOT_NAME, default=current_name): str,
+                    vol.Optional(CONF_VISION_URL, default=current_vision): str,
+                }
             ),
         )
 

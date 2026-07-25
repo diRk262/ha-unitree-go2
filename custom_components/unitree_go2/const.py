@@ -6,6 +6,7 @@ CONF_SERIAL = "serial_number"
 CONF_EMAIL = "email"
 CONF_PASSWORD = "password"
 CONF_ROBOT_NAME = "robot_name"
+CONF_VISION_URL = "vision_url"
 DEFAULT_ROBOT_NAME = "Go2"
 
 SCAN_INTERVAL_SECONDS = 5
