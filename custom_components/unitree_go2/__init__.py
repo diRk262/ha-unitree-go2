@@ -8,6 +8,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
+import homeassistant.helpers.config_validation as cv
 
 from .const import (
     DOMAIN, CONF_ROBOT_IP, CONF_AES_KEY, CONF_SERIAL,
@@ -196,12 +197,18 @@ def _register_vision_services(hass: HomeAssistant) -> None:
             b"data", len(pcm))
         await _get_coordinator(hass).async_speak(header + pcm)
 
+    async def handle_speak(call: ServiceCall) -> None:
+        await _get_coordinator(hass).async_speak_text(call.data["text"])
+
+    SPEAK_SCHEMA = vol.Schema({vol.Required("text"): cv.string})
+
     hass.services.async_register(DOMAIN, "vision_detect", handle_vision_detect, schema=VISION_DETECT_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_describe", handle_vision_describe)
     hass.services.async_register(DOMAIN, "vision_ask", handle_vision_ask, schema=VISION_ASK_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_watch_start", handle_vision_watch_start, schema=VISION_WATCH_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_watch_stop", handle_vision_watch_stop)
     hass.services.async_register(DOMAIN, "speak_test", handle_speak_test)
+    hass.services.async_register(DOMAIN, "speak", handle_speak, schema=SPEAK_SCHEMA)
 
 
 def _all_service_names() -> list[str]:
@@ -224,7 +231,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     robot_name = entry.options.get(CONF_ROBOT_NAME, DEFAULT_ROBOT_NAME)
 
-    if not hass.services.has_service(DOMAIN, "stand_lock"):
+    if not hass.services.has_service(DOMAIN, "speak"):
         _register_services(hass)
         _register_slam_services(hass)
         _register_vision_services(hass)

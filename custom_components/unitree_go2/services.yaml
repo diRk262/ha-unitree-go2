@@ -297,3 +297,15 @@ vision_watch_stop:
 speak_test:
   name: Speaker Test
   description: Play a test tone on the robot's speaker to verify audio output.
+
+speak:
+  name: Speak
+  description: Convert text to speech and play on the robot's speaker via Piper TTS.
+  fields:
+    text:
+      name: Text
+      description: The text to speak.
+      required: true
+      example: "Hallo, ich bin Robo!"
+      selector:
+        text:
