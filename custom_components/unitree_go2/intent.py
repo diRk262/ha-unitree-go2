@@ -21,6 +21,9 @@ INTENT_ENABLE_MOVEMENT = "UnitreeGo2EnableMovement"
 INTENT_DISABLE_MOVEMENT = "UnitreeGo2DisableMovement"
 INTENT_STOP = "UnitreeGo2Stop"
 INTENT_MOVE = "UnitreeGo2Move"
+INTENT_VISION_LOOK = "UnitreeGo2VisionLook"
+INTENT_VISION_DESCRIBE = "UnitreeGo2VisionDescribe"
+INTENT_VISION_WATCH = "UnitreeGo2VisionWatch"
 
 VOICE_TO_COMMAND = {
     "sit": "sit",
@@ -133,6 +136,9 @@ async def async_setup_intents(hass: HomeAssistant) -> None:
     intent.async_register(hass, Go2DisableMovementIntent())
     intent.async_register(hass, Go2StopIntent())
     intent.async_register(hass, Go2MoveIntent())
+    intent.async_register(hass, Go2VisionLookIntent())
+    intent.async_register(hass, Go2VisionDescribeIntent())
+    intent.async_register(hass, Go2VisionWatchIntent())
 
 
 class Go2CommandIntent(intent.IntentHandler):
@@ -292,4 +298,87 @@ class Go2MoveIntent(intent.IntentHandler):
 
         response = intent_obj.create_response()
         response.async_set_speech("OK")
+        return response
+
+
+class Go2VisionLookIntent(intent.IntentHandler):
+    intent_type = INTENT_VISION_LOOK
+    description = "Detect objects the Go2 sees, fall back to Florence-2 if nothing found"
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        coordinator = _get_coordinator(intent_obj.hass)
+        response = intent_obj.create_response()
+        if not coordinator:
+            response.async_set_speech("Go2 ist nicht konfiguriert.")
+            return response
+        if not coordinator.vision_url:
+            response.async_set_speech("Vision Server ist nicht konfiguriert.")
+            return response
+        try:
+            await coordinator.async_vision_detect()
+            summary = coordinator.data.get("vision_detected_objects", "")
+            if summary and summary != "none":
+                speech = f"Ich sehe {summary}."
+            else:
+                await coordinator.async_vision_describe()
+                description = coordinator.data.get("vision_last_description_full", "")
+                if not description:
+                    description = coordinator.data.get("vision_last_description", "")
+                speech = description or "Ich kann gerade nichts erkennen."
+            response.async_set_speech(speech)
+            intent_obj.hass.async_create_task(coordinator.async_speak_text(speech))
+        except Exception as exc:
+            response.async_set_speech(f"Fehler: {exc}")
+        return response
+
+
+class Go2VisionDescribeIntent(intent.IntentHandler):
+    intent_type = INTENT_VISION_DESCRIBE
+    description = "Get a detailed Florence-2 description of what the Go2 sees"
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        coordinator = _get_coordinator(intent_obj.hass)
+        response = intent_obj.create_response()
+        if not coordinator:
+            response.async_set_speech("Go2 ist nicht konfiguriert.")
+            return response
+        if not coordinator.vision_url:
+            response.async_set_speech("Vision Server ist nicht konfiguriert.")
+            return response
+        try:
+            await coordinator.async_vision_describe()
+            description = coordinator.data.get("vision_last_description_full", "")
+            if not description:
+                description = coordinator.data.get("vision_last_description", "Keine Beschreibung verfügbar.")
+            response.async_set_speech(description)
+            intent_obj.hass.async_create_task(coordinator.async_speak_text(description))
+        except Exception as exc:
+            response.async_set_speech(f"Fehler: {exc}")
+        return response
+
+
+class Go2VisionWatchIntent(intent.IntentHandler):
+    intent_type = INTENT_VISION_WATCH
+    description = "Toggle the Go2 vision watch mode"
+    slot_schema = {"action": cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        slots = self.async_validate_slots(intent_obj.slots)
+        action = slots["action"]["value"].strip().lower()
+        coordinator = _get_coordinator(intent_obj.hass)
+        response = intent_obj.create_response()
+        if not coordinator:
+            response.async_set_speech("Go2 ist nicht konfiguriert.")
+            return response
+
+        enable = action in ("an", "ein", "on", "start", "aktivieren", "einschalten")
+        try:
+            if enable:
+                await coordinator.async_vision_watch_start()
+                response.async_set_speech("Wachmodus aktiviert.")
+            else:
+                await coordinator.async_vision_watch_stop()
+                response.async_set_speech("Wachmodus deaktiviert.")
+        except Exception as exc:
+            response.async_set_speech(f"Fehler: {exc}")
         return response

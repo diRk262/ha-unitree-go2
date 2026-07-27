@@ -18,6 +18,9 @@ Tested on **Go2 Pro with firmware 1.1.15**.
 - **Command dropdown** — Select and execute commands, organized like the physical remote
 - **Move service** — Obstacle avoidance movement with x/y/yaw speed control
 - **Voice control** — Custom sentences for HA Assist (DE/EN): tricks, directions, start/stop, enable/disable
+- **KI Vision** — Object detection (YOLO) and scene description (Florence-2) via external vision server
+- **Vision voice intents** — "Was siehst du?" triggers detection and speaks the answer through the Go2 speaker
+- **TTS speaker output** — Text-to-speech via Piper (Wyoming) played directly on the Go2's built-in speaker
 - **SLAM Mapping** — Start/stop mapping, live map visualization in the LiDAR camera entity
 - **SLAM Navigation** — Start/stop navigation to saved map positions
 - **Smart command chaining** — Auto stand-up after tricks, auto normal-mode after stand lock
@@ -183,6 +186,10 @@ All commands are also available as HA services for use in automations:
 - `unitree_go2.move_forward`, `move_backward`, `move_left`, `move_right`, `turn_left`, `turn_right` — Directional impulse movement
 - `unitree_go2.mapping_start`, `mapping_stop` — Start/stop SLAM mapping
 - `unitree_go2.navigation_start`, `navigation_stop` — Start/stop SLAM navigation
+- `unitree_go2.vision_detect` — Detect objects with YOLO
+- `unitree_go2.vision_describe` — Describe scene with Florence-2
+- `unitree_go2.vision_ask` — Ask a question about the camera image
+- `unitree_go2.speak_test` — Test TTS output on the Go2 speaker
 
 ## Voice Control
 
@@ -206,6 +213,8 @@ Commands use the **robot name** you chose during setup. If you named your robot 
 | **Tricks** | sitz, steh auf, hallo, gib Pfote, strecken, herz, tanz, spring | sit, stand up, hello, shake hands, stretch, heart, dance, jump |
 | **Directions** | vorwärts, rückwärts, links, rechts, dreh links, dreh rechts | forward, backward, left, right, turn left, turn right |
 | **Stop** | Stop, Stopp, Halt, Notaus | stop, halt, emergency stop |
+| **Vision** | was siehst du, wer ist da, beschreibe was du siehst | what do you see, who is there, describe what you see |
+| **Watch** | Wachmodus an/aus | watch mode on/off |
 | **Safety** | Befehle an/aus, Bewegung an/aus | commands on/off, movement on/off |
 
 ### Smart command chaining
@@ -255,6 +264,47 @@ During mapping or navigation, additional sensors are available:
 | SLAM Status | Current state: `idle`, `mapping`, or `localization` |
 | SLAM X / SLAM Y | Robot position in the SLAM coordinate frame (meters) |
 | SLAM Yaw | Robot heading angle (radians) |
+
+## KI Vision
+
+The integration supports AI-powered vision through an external vision server. The Go2's front camera image is analyzed for object detection and scene description.
+
+### Requirements
+
+- A separate vision server running YOLO and/or Florence-2 (not included in this integration)
+- Configure the vision server URL in **Settings → Devices & Services → Unitree Go2 → Configure**
+
+### Vision Services
+
+| Service | Description |
+| --- | --- |
+| `unitree_go2.vision_detect` | Detect objects using YOLO (fast, <1s) |
+| `unitree_go2.vision_describe` | Describe the scene using Florence-2 (detailed, ~5-10s) |
+| `unitree_go2.vision_ask` | Ask a question about the current camera image |
+
+### Vision Voice Commands
+
+Ask your robot what it sees — the response is spoken through the Go2's built-in speaker via Piper TTS:
+
+| Command | Action |
+| --- | --- |
+| "{name} was siehst du?" | YOLO detection, falls back to Florence-2 if nothing found |
+| "{name} wer ist da?" | Same as above |
+| "{name} beschreibe was du siehst" | Detailed Florence-2 scene description |
+| "{name} Wachmodus an/aus" | Toggle continuous object detection |
+
+### TTS Speaker Output
+
+Vision responses are automatically spoken through the Go2's built-in speaker. This requires a [Piper TTS](https://github.com/rhasspy/piper) instance connected to Home Assistant via the [Wyoming integration](https://www.home-assistant.io/integrations/wyoming/). The integration automatically discovers the Wyoming TTS service from your HA configuration.
+
+### Vision Sensors
+
+| Entity | Type | Description |
+| --- | --- | --- |
+| Vision Detected Objects | Sensor | Last detection result (e.g. "1 person, 2 chairs") |
+| Vision Last Description | Sensor | Last Florence-2 scene description |
+| Vision Last Answer | Sensor | Last answer to a vision question |
+| Vision Watch | Switch | Toggle continuous detection mode |
 
 ## Safety System
 

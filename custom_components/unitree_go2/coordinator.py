@@ -23,7 +23,7 @@ from .lib.unitree_webrtc_connect.webrtc_driver import (
 )
 from homeassistant.exceptions import HomeAssistantError
 
-from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API
+from .lib.unitree_webrtc_connect.constants import RTC_TOPIC, OBSTACLES_AVOID_API, AUDIO_API
 
 from .const import (
     DOMAIN, SCAN_INTERVAL_SECONDS, MODE_CODES,
@@ -133,7 +133,9 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             "vision_detected_objects": "",
             "vision_detected_details": [],
             "vision_last_description": "",
+            "vision_last_description_full": "",
             "vision_last_answer": "",
+            "vision_last_answer_full": "",
             "vision_watch_status": "idle",
         }
 
@@ -1002,13 +1004,17 @@ class Go2DataCoordinator(DataUpdateCoordinator):
 
     async def async_vision_describe(self) -> dict:
         result = await self._vision_request("describe")
-        self._sensor_data["vision_last_description"] = result.get("description", "")
+        full = result.get("description", "")
+        self._sensor_data["vision_last_description"] = full[:250] if len(full) > 250 else full
+        self._sensor_data["vision_last_description_full"] = full
         self.async_set_updated_data(dict(self._sensor_data))
         return result
 
     async def async_vision_ask(self, question: str) -> dict:
         result = await self._vision_request("ask", {"question": question})
-        self._sensor_data["vision_last_answer"] = result.get("answer", "")
+        full = result.get("answer", "")
+        self._sensor_data["vision_last_answer"] = full[:250] if len(full) > 250 else full
+        self._sensor_data["vision_last_answer_full"] = full
         self.async_set_updated_data(dict(self._sensor_data))
         return result
 
@@ -1057,6 +1063,205 @@ class Go2DataCoordinator(DataUpdateCoordinator):
             self._vision_watch_task.cancel()
         self._sensor_data["vision_watch_status"] = "idle"
         self.async_set_updated_data(dict(self._sensor_data))
+
+    # ── Audio / Megaphone ──────────────────────────────────────────────
+
+    async def async_speak(self, wav_bytes: bytes) -> None:
+        """Play WAV audio on the Go2 speaker via the audiohub megaphone API."""
+        import base64
+
+        pub_sub = self._conn.datachannel.pub_sub
+        topic = RTC_TOPIC["AUDIO_HUB_REQ"]
+
+        await pub_sub.publish_request_new(
+            topic, {"api_id": AUDIO_API["ENTER_MEGAPHONE"], "parameter": "{}"},
+        )
+        await asyncio.sleep(0.1)
+
+        wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
+        chunk_size = 61440
+        chunks = [wav_b64[i:i + chunk_size] for i in range(0, len(wav_b64), chunk_size)]
+
+        for idx, chunk in enumerate(chunks):
+            param = json.dumps({
+                "current_block_index": idx + 1,
+                "total_block_number": len(chunks),
+                "current_block_size": len(chunk),
+                "block_content": chunk,
+            })
+            await pub_sub.publish_request_new(
+                topic, {"api_id": AUDIO_API["UPLOAD_MEGAPHONE"], "parameter": param},
+            )
+            await asyncio.sleep(0.01)
+
+        duration = max(0.5, (len(wav_bytes) - 44) / (16000 * 2))
+        await asyncio.sleep(duration + 0.3)
+        await pub_sub.publish_request_new(
+            topic, {"api_id": AUDIO_API["EXIT_MEGAPHONE"], "parameter": "{}"},
+        )
+
+    def _find_wyoming_tts(self) -> tuple:
+        """Find Wyoming TTS host/port from HA's config entries."""
+        for entry in self.hass.config_entries.async_entries("wyoming"):
+            if entry.state.value == "loaded":
+                host = entry.data.get("host")
+                port = entry.data.get("port")
+                if host and port:
+                    return host, port
+        return None, None
+
+    async def async_speak_text(self, text: str) -> None:
+        """Convert text to speech via Piper Wyoming and play on Go2 speaker."""
+        import struct
+        import base64
+
+        tts_host, tts_port = self._find_wyoming_tts()
+        if not tts_host:
+            _LOGGER.error("No Wyoming TTS service found in HA")
+            return
+
+        try:
+            reader, writer = await asyncio.open_connection(tts_host, tts_port)
+        except Exception as exc:
+            _LOGGER.error("Cannot connect to Piper at %s:%s: %s", tts_host, tts_port, exc)
+            return
+
+        try:
+            pub_sub = self._conn.datachannel.pub_sub
+            topic = RTC_TOPIC["AUDIO_HUB_REQ"]
+            enter_task = asyncio.ensure_future(pub_sub.publish_request_new(
+                topic, {"api_id": AUDIO_API["ENTER_MEGAPHONE"], "parameter": "{}"},
+            ))
+
+            synth_data = json.dumps({"text": text}).encode("utf-8")
+            header_line = json.dumps({
+                "type": "synthesize",
+                "data_length": len(synth_data),
+                "payload_length": 0,
+            }).encode("utf-8") + b"\n"
+            writer.write(header_line + synth_data)
+            await writer.drain()
+
+            pcm_data = bytearray()
+            sample_rate = 16000
+            sample_width = 2
+            channels = 1
+
+            while True:
+                line = await asyncio.wait_for(reader.readline(), timeout=30)
+                if not line:
+                    break
+                evt = json.loads(line)
+                evt_type = evt.get("type", "")
+                data_len = evt.get("data_length", 0)
+                payload_len = evt.get("payload_length", 0)
+
+                evt_data = {}
+                if data_len > 0:
+                    evt_data = json.loads(await reader.readexactly(data_len))
+                if payload_len > 0:
+                    payload = await reader.readexactly(payload_len)
+                    if evt_type == "audio-chunk":
+                        pcm_data.extend(payload)
+                        sample_rate = evt_data.get("rate", 16000)
+                        sample_width = evt_data.get("width", 2)
+                        channels = evt_data.get("channels", 1)
+                elif evt_type == "audio-stop":
+                    break
+                if evt_type == "audio-stop":
+                    break
+
+            writer.close()
+
+            if not pcm_data:
+                _LOGGER.warning("Piper returned no audio for: %s", text[:50])
+                enter_task.cancel()
+                return
+
+            pcm = bytes(pcm_data)
+            if sample_rate == 16000 and channels == 1 and sample_width == 2:
+                wav_header = struct.pack(
+                    "<4sI4s4sIHHIIHH4sI",
+                    b"RIFF", 36 + len(pcm), b"WAVE",
+                    b"fmt ", 16, 1, 1, 16000, 32000, 2, 16,
+                    b"data", len(pcm),
+                )
+                wav_bytes = wav_header + pcm
+            else:
+                wav_header = struct.pack(
+                    "<4sI4s4sIHHIIHH4sI",
+                    b"RIFF", 36 + len(pcm), b"WAVE",
+                    b"fmt ", 16, 1, channels, sample_rate,
+                    sample_rate * channels * sample_width,
+                    channels * sample_width, sample_width * 8,
+                    b"data", len(pcm),
+                )
+                wav_bytes = await self._ensure_wav_16k_mono(wav_header + pcm)
+
+            await enter_task
+            await asyncio.sleep(0.1)
+
+            wav_b64 = base64.b64encode(wav_bytes).decode("ascii")
+            chunk_size = 61440
+            chunks = [wav_b64[i:i + chunk_size]
+                      for i in range(0, len(wav_b64), chunk_size)]
+
+            for idx, chunk in enumerate(chunks):
+                param = json.dumps({
+                    "current_block_index": idx + 1,
+                    "total_block_number": len(chunks),
+                    "current_block_size": len(chunk),
+                    "block_content": chunk,
+                })
+                await pub_sub.publish_request_new(
+                    topic,
+                    {"api_id": AUDIO_API["UPLOAD_MEGAPHONE"], "parameter": param},
+                )
+                await asyncio.sleep(0.01)
+
+            duration = max(0.5, len(pcm) / (16000 * 2))
+            await asyncio.sleep(duration + 0.3)
+            await pub_sub.publish_request_new(
+                topic, {"api_id": AUDIO_API["EXIT_MEGAPHONE"], "parameter": "{}"},
+            )
+        except asyncio.TimeoutError:
+            _LOGGER.error("Piper TTS timeout for: %s", text[:50])
+        except Exception as exc:
+            _LOGGER.error("TTS failed: %s", exc)
+
+    async def _ensure_wav_16k_mono(self, audio_data: bytes) -> bytes:
+        """Convert audio to 16kHz mono 16-bit PCM WAV if needed."""
+        import struct
+        import wave
+
+        try:
+            with io.BytesIO(audio_data) as buf:
+                with wave.open(buf, "rb") as wf:
+                    sr = wf.getframerate()
+                    ch = wf.getnchannels()
+                    sw = wf.getsampwidth()
+                    frames = wf.readframes(wf.getnframes())
+
+            samples = np.frombuffer(frames, dtype=np.int16 if sw == 2 else np.uint8)
+            if sw == 1:
+                samples = ((samples.astype(np.int16) - 128) * 256).astype(np.int16)
+            if ch > 1:
+                samples = samples.reshape(-1, ch)[:, 0]
+            if sr != 16000:
+                num_out = int(len(samples) * 16000 / sr)
+                indices = np.linspace(0, len(samples) - 1, num_out).astype(int)
+                samples = samples[indices]
+
+            pcm = samples.astype(np.int16).tobytes()
+            header = struct.pack(
+                "<4sI4s4sIHHIIHH4sI",
+                b"RIFF", 36 + len(pcm), b"WAVE",
+                b"fmt ", 16, 1, 1, 16000, 32000, 2, 16,
+                b"data", len(pcm),
+            )
+            return header + pcm
+        except Exception:
+            return audio_data
 
     # ── Coordinator update ────────────────────────────────────────────
 

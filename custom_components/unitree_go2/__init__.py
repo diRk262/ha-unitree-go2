@@ -182,11 +182,26 @@ def _register_vision_services(hass: HomeAssistant) -> None:
     async def handle_vision_watch_stop(call: ServiceCall) -> None:
         await _get_coordinator(hass).async_vision_watch_stop()
 
+    async def handle_speak_test(call: ServiceCall) -> None:
+        import struct, math
+        sample_rate = 16000
+        duration = 1.0
+        freq = 440.0
+        num_samples = int(sample_rate * duration)
+        samples = [int(16000 * math.sin(2 * math.pi * freq * t / sample_rate)) for t in range(num_samples)]
+        pcm = struct.pack(f"<{num_samples}h", *samples)
+        header = struct.pack("<4sI4s4sIHHIIHH4sI",
+            b"RIFF", 36 + len(pcm), b"WAVE", b"fmt ", 16,
+            1, 1, sample_rate, sample_rate * 2, 2, 16,
+            b"data", len(pcm))
+        await _get_coordinator(hass).async_speak(header + pcm)
+
     hass.services.async_register(DOMAIN, "vision_detect", handle_vision_detect, schema=VISION_DETECT_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_describe", handle_vision_describe)
     hass.services.async_register(DOMAIN, "vision_ask", handle_vision_ask, schema=VISION_ASK_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_watch_start", handle_vision_watch_start, schema=VISION_WATCH_SCHEMA)
     hass.services.async_register(DOMAIN, "vision_watch_stop", handle_vision_watch_stop)
+    hass.services.async_register(DOMAIN, "speak_test", handle_speak_test)
 
 
 def _all_service_names() -> list[str]:
@@ -315,10 +330,48 @@ intents:
         slots:
           direction:
             type: "direction"
+  UnitreeGo2VisionLook:
+    data:
+      - sentences:
+          - "[{n}] was siehst du"
+          - "[{n}] was sieht er"
+          - "[{n}] was ist vor dir"
+          - "[{n}] schau mal"
+          - "[{n}] wer ist da"
+          - "[{n}] wer ist dort"
+          - "[{n}] was ist da"
+          - "[{n}] wen siehst du"
+          - "Roboter was siehst du"
+          - "Hund was siehst du"
+          - "was sieht [{n}]"
+          - "was sieht der Roboter"
+          - "was sieht der Hund"
+          - "Roboter wer ist da"
+          - "Hund wer ist da"
+  UnitreeGo2VisionDescribe:
+    data:
+      - sentences:
+          - "[{n}] beschreibe genau was du siehst"
+          - "[{n}] beschreibe was du siehst"
+          - "[{n}] beschreibe die Szene"
+          - "[{n}] was genau siehst du"
+          - "Roboter beschreibe was du siehst"
+  UnitreeGo2VisionWatch:
+    data:
+      - sentences:
+          - "[{n}] Wachmodus {{action}}"
+          - "[{n}] Überwachung {{action}}"
+          - "Roboter Wachmodus {{action}}"
+          - "Hund Wachmodus {{action}}"
+        slots:
+          action:
+            type: "action"
 lists:
   command:
     wildcard: true
   direction:
+    wildcard: true
+  action:
     wildcard: true
 ''',
         "en": f'''language: "en"
@@ -386,10 +439,43 @@ intents:
         slots:
           direction:
             type: "direction"
+  UnitreeGo2VisionLook:
+    data:
+      - sentences:
+          - "[{n}] what do you see"
+          - "[{n}] what is in front of you"
+          - "[{n}] look around"
+          - "[{n}] who is there"
+          - "[{n}] what is there"
+          - "[{n}] who do you see"
+          - "robot what do you see"
+          - "dog what do you see"
+          - "what does [{n}] see"
+          - "what does the robot see"
+          - "robot who is there"
+          - "dog who is there"
+  UnitreeGo2VisionDescribe:
+    data:
+      - sentences:
+          - "[{n}] describe what you see"
+          - "[{n}] describe the scene"
+          - "[{n}] what exactly do you see"
+          - "robot describe what you see"
+  UnitreeGo2VisionWatch:
+    data:
+      - sentences:
+          - "[{n}] watch mode {{action}}"
+          - "[{n}] surveillance {{action}}"
+          - "robot watch mode {{action}}"
+        slots:
+          action:
+            type: "action"
 lists:
   command:
     wildcard: true
   direction:
+    wildcard: true
+  action:
     wildcard: true
 ''',
     }

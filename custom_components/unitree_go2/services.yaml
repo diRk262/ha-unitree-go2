@@ -293,3 +293,7 @@ vision_watch_start:
 vision_watch_stop:
   name: Vision Watch Stop
   description: Stop continuous object detection.
+
+speak_test:
+  name: Speaker Test
+  description: Play a test tone on the robot's speaker to verify audio output.

@@ -99,8 +99,18 @@ class Go2Sensor(CoordinatorEntity[Go2DataCoordinator], SensorEntity):
 
     @property
     def extra_state_attributes(self):
-        if self._key == "vision_detected_objects" and self.coordinator.data:
+        if not self.coordinator.data:
+            return None
+        if self._key == "vision_detected_objects":
             details = self.coordinator.data.get("vision_detected_details")
             if details:
                 return {"details": details}
+        elif self._key == "vision_last_description":
+            full = self.coordinator.data.get("vision_last_description_full", "")
+            if full:
+                return {"full_text": full}
+        elif self._key == "vision_last_answer":
+            full = self.coordinator.data.get("vision_last_answer_full", "")
+            if full:
+                return {"full_text": full}
         return None
