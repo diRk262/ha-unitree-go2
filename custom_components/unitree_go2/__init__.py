@@ -230,11 +230,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _register_vision_services(hass)
         await async_setup_intents(hass)
 
+    try:
+        await _register_lovelace_card(hass)
+    except Exception as exc:
+        _LOGGER.warning("Lovelace card auto-registration failed: %s", exc)
+
     _install_custom_sentences(hass, robot_name)
 
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     return True
+
+
+async def _register_lovelace_card(hass: HomeAssistant) -> None:
+    """Register the custom Lovelace card and auto-add as resource."""
+    from homeassistant.components.http import StaticPathConfig
+
+    url_base = "/unitree_go2"
+    url = f"{url_base}/unitree-go2-card.js"
+    try:
+        await hass.http.async_register_static_paths([
+            StaticPathConfig(url_base, str(Path(__file__).parent / "www"), False)
+        ])
+    except RuntimeError:
+        pass
+
+    lovelace = hass.data.get("lovelace")
+    if not lovelace:
+        return
+    mode = getattr(lovelace, "mode", None) or getattr(lovelace, "resource_mode", None)
+    if mode != "storage":
+        return
+    resources = lovelace.resources
+    if not resources.loaded:
+        await resources.async_load()
+    existing = [r for r in resources.async_items() if url_base in r.get("url", "")]
+    version = "0.6.0"
+    versioned_url = f"{url}?v={version}"
+    if existing:
+        for res in existing:
+            if res.get("url") != versioned_url:
+                await resources.async_update_item(
+                    res["id"], {"url": versioned_url, "res_type": "module"}
+                )
+    else:
+        await resources.async_create_item({"url": versioned_url, "res_type": "module"})
 
 
 async def _async_options_updated(

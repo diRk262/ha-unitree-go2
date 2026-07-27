@@ -90,7 +90,6 @@ class Go2ExecuteCommandButton(CoordinatorEntity[Go2DataCoordinator], ButtonEntit
         if select is None or select.command_key is None:
             raise HomeAssistantError("No command selected")
         command = select.command_key
-        _LOGGER.info("Executing selected command: %s", command)
         await self.coordinator.async_sport_command(command)
 
 
