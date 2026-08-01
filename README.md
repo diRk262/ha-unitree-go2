@@ -28,6 +28,7 @@ Tested on **Go2 Pro with firmware 1.1.15**.
 - **Camera** — Live stream from the Go2's front camera
 - **LiDAR Map** — Real-time 2D top-down point cloud / SLAM map visualization
 - **Auto-reconnect** — Automatically reconnects when the robot restarts
+- **Custom Lovelace card** — Full control dashboard card with D-Pad, commands, vision, TTS, camera and sliders
 - **Localized** — English and German translations
 
 ## Supported Models
@@ -189,6 +190,7 @@ All commands are also available as HA services for use in automations:
 - `unitree_go2.vision_detect` — Detect objects with YOLO
 - `unitree_go2.vision_describe` — Describe scene with Florence-2
 - `unitree_go2.vision_ask` — Ask a question about the camera image
+- `unitree_go2.speak` — Text-to-speech on the Go2 speaker via Piper TTS
 - `unitree_go2.speak_test` — Test TTS output on the Go2 speaker
 
 ## Voice Control
@@ -305,6 +307,43 @@ Vision responses are automatically spoken through the Go2's built-in speaker. Th
 | Vision Last Description | Sensor | Last Florence-2 scene description |
 | Vision Last Answer | Sensor | Last answer to a vision question |
 | Vision Watch | Switch | Toggle continuous detection mode |
+
+## Lovelace Card
+
+The integration includes a custom dashboard card that is **automatically registered** when the integration loads — no manual resource setup needed. It works with both HACS and manual installations.
+
+### Configuration
+
+Add the card to any dashboard via the YAML editor:
+
+```yaml
+type: custom:unitree-go2-card
+entity_prefix: go2_pro_XXXXXXXXXXXXXXXX
+name: Robo
+```
+
+Replace the `entity_prefix` with your robot's entity prefix (visible in your entity IDs, e.g. `sensor.go2_pro_b42d2000q6a9d400_batterie` → prefix is `go2_pro_b42d2000q6a9d400`).
+
+### Card Features
+
+- **Info bar** — Battery level, online status, current mode
+- **Camera feed** — Live front camera with auto-refresh
+- **D-Pad** — 4 directional movement buttons + turn left/right
+- **Quick actions** — Classic, Stand Lock, Sit, Free Walk, Shake Hands, Emergency Stop
+- **Command dropdown** — All available commands with execute button
+- **Speed & duration sliders** — Configure movement speed and impulse duration
+- **Vision buttons** — Detect objects and describe scene
+- **TTS input** — Type text and play it on the Go2's speaker
+- **Volume & light sliders** — Adjust speaker volume and head lamp brightness
+- **Safety switches** — Toggle Commands and Movement switches
+
+### Optional settings
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `show_camera` | `true` | Show/hide the camera feed |
+| `show_vision` | `true` | Show/hide the vision section |
+| `show_sliders` | `true` | Show/hide speed/duration sliders |
 
 ## Safety System
 
